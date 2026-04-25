@@ -1,6 +1,7 @@
 {
   "name": "sakzee-website",
   "version": "0.1.0",
+  "npmrc": "legacy-peer-deps=true",
   "private": true,
   "scripts": {
     "dev": "next dev",
