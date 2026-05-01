@@ -39,9 +39,11 @@ export default function Home() {
           <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.85rem 2rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '1rem' }}>
             Book a Service
           </Link>
-          <Link href="/about" style={{ background: 'transparent', color: 'white', padding: '0.85rem 2rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '1rem', border: '2px solid rgba(255,255,255,0.4)' }}>
-            Learn More
-          </Link>
+          <a href="https://wa.me/233256089599?text=Hi%20Sakzee!%20I%20would%20like%20to%20know%20more%20about%20your%20services." target="_blank" rel="noopener noreferrer"
+            style={{ background: '#25D366', color: 'white', padding: '0.85rem 2rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" /><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.555 4.116 1.529 5.845L.057 23.535a.75.75 0 00.908.908l5.69-1.472A11.932 11.932 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.712 9.712 0 01-4.953-1.355l-.355-.212-3.68.952.972-3.558-.232-.368A9.712 9.712 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z" /></svg>
+            Chat on WhatsApp
+          </a>
         </div>
       </section>
 
@@ -81,6 +83,41 @@ export default function Home() {
         </div>
       </section>
 
+      {/* CONTACT STRIP */}
+      <section style={{ background: '#f8f9ff', padding: '2.5rem 2rem' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1.5rem' }}>
+          <a href="tel:+233256089599" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '1rem 1.5rem', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #eee', color: '#1a2456', fontWeight: 600 }}>
+            <span style={{ fontSize: '1.5rem' }}>📞</span>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 400 }}>Call us</div>
+              <div>0256 089 599</div>
+            </div>
+          </a>
+          <a href="tel:+233256089598" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '1rem 1.5rem', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #eee', color: '#1a2456', fontWeight: 600 }}>
+            <span style={{ fontSize: '1.5rem' }}>📞</span>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 400 }}>Call us</div>
+              <div>0256 089 598</div>
+            </div>
+          </a>
+          <a href="mailto:Sakzee373@gmail.com" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '1rem 1.5rem', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #eee', color: '#1a2456', fontWeight: 600 }}>
+            <span style={{ fontSize: '1.5rem' }}>✉️</span>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 400 }}>Email us</div>
+              <div>Sakzee373@gmail.com</div>
+            </div>
+          </a>
+          <a href="https://wa.me/233256089599?text=Hi%20Sakzee!%20I%20would%20like%20to%20know%20more%20about%20your%20services." target="_blank" rel="noopener noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#25D366', padding: '1rem 1.5rem', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', color: 'white', fontWeight: 600 }}>
+            <span style={{ fontSize: '1.5rem' }}>💬</span>
+            <div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.85, fontWeight: 400 }}>WhatsApp</div>
+              <div>Chat with us</div>
+            </div>
+          </a>
+        </div>
+      </section>
+
       {/* CTA */}
       <section style={{ padding: '4rem 2rem', textAlign: 'center', background: 'white' }}>
         <h2 style={{ color: '#1a2456', fontSize: '2rem', fontWeight: 700, marginBottom: '1rem' }}>Ready to Scale Your Business?</h2>
@@ -91,16 +128,41 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{ background: '#111827', color: 'white', padding: '2rem', textAlign: 'center' }}>
+      <footer style={{ background: '#111827', color: 'white', padding: '2.5rem 2rem', textAlign: 'center' }}>
         <div style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>
           <span>sak</span><span style={{ color: '#f97316' }}>zee</span>
         </div>
-        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', margin: '0 0 0.5rem' }}>Moving Dreams, Delivering Growth</p>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>
-          📍 Ubuntu Court Estate, Oyarifa, Accra, Ghana &nbsp;|&nbsp; 📞 0256089599 / 0256089598 &nbsp;|&nbsp; ✉️ Sakzee373@gmail.com
-        </p>
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '1rem' }}>© 2025 Sakzee Company Limited. All rights reserved.</p>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', margin: '0 0 1rem' }}>Moving Dreams, Delivering Growth</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <a href="tel:+233256089599" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '0.85rem' }}>📞 0256 089 599</a>
+          <a href="tel:+233256089598" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '0.85rem' }}>📞 0256 089 598</a>
+          <a href="mailto:Sakzee373@gmail.com" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '0.85rem' }}>✉️ Sakzee373@gmail.com</a>
+          <a href="https://wa.me/233256089599" target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', textDecoration: 'none', fontSize: '0.85rem' }}>💬 WhatsApp</a>
+        </div>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>📍 Ubuntu Court Estate, Oyarifa, Accra, Ghana</p>
+        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '0.75rem' }}>© 2025 Sakzee Company Limited. All rights reserved.</p>
       </footer>
+
+      {/* FLOATING WHATSAPP BUTTON */}
+      <a
+        href="https://wa.me/233256089599?text=Hi%20Sakzee!%20I%20would%20like%20to%20know%20more%20about%20your%20services."
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 999,
+          background: '#25D366', color: 'white', borderRadius: '50px',
+          padding: '0.85rem 1.25rem', textDecoration: 'none',
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          fontWeight: 700, fontSize: '0.95rem',
+          boxShadow: '0 4px 20px rgba(37,211,102,0.4)',
+        }}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.555 4.116 1.529 5.845L.057 23.535a.75.75 0 00.908.908l5.69-1.472A11.932 11.932 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.712 9.712 0 01-4.953-1.355l-.355-.212-3.68.952.972-3.558-.232-.368A9.712 9.712 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z" />
+        </svg>
+        Chat with us
+      </a>
 
     </main>
   );
