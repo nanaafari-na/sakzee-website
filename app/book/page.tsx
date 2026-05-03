@@ -64,19 +64,25 @@ export default function BookPage() {
     }
 
     function initPaystack() {
+        if (!window.PaystackPop) {
+            setError('Payment system is loading. Please wait a moment and try again.');
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         const ref = `SAKZEE-${Date.now()}`;
         const handler = window.PaystackPop.setup({
-            key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || '',
+            key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || 'pk_test_6acba43a4893ab00f1a9618f7e84e5a471fe16ac',
             email: form.email,
             amount: (selected?.price || 0) * 100,
             currency: 'GHS',
-            ref,
-            callback: async function () {
-                await saveBooking(ref);
-                setReference(ref);
-                setLoading(false);
-                setSuccess(true);
+            ref: ref,
+            callback: function (response: any) {
+                saveBooking(ref).then(() => {
+                    setReference(ref);
+                    setLoading(false);
+                    setSuccess(true);
+                });
             },
             onClose: function () {
                 setLoading(false);
@@ -121,7 +127,7 @@ export default function BookPage() {
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
-            <Script src="https://js.paystack.co/v1/inline.js" strategy="beforeInteractive" />
+            <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
             <nav style={{ background: '#1a2456', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Link href="/" style={{ color: 'white', textDecoration: 'none', fontSize: '1.4rem', fontWeight: 800 }}>
                     sak<span style={{ color: '#f97316' }}>zee</span>
