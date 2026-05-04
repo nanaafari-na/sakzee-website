@@ -24,6 +24,7 @@ export default function VendorLoginPage() {
             localStorage.setItem('vendor_token', data.token);
             localStorage.setItem('vendor_id', data.vendor.id);
             localStorage.setItem('vendor_name', data.vendor.business_name);
+            localStorage.setItem('vendor_email', data.vendor.email);
             router.push('/vendor/dashboard');
         } catch (e: any) {
             setError(e.message);
