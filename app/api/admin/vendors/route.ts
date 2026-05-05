@@ -1,0 +1,39 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
+const headers = {
+    'apikey': SERVICE_KEY,
+    'Authorization': `Bearer ${SERVICE_KEY}`,
+    'Content-Type': 'application/json',
+};
+
+export async function GET() {
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/vendors?select=*&order=created_at.desc`,
+            { headers }
+        );
+        const data = await res.json();
+        return NextResponse.json(data);
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}
+
+export async function PATCH(req: NextRequest) {
+    try {
+        const id = req.nextUrl.searchParams.get('id');
+        if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+        const body = await req.json();
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/vendors?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { ...headers, 'Prefer': 'return=minimal' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return NextResponse.json({ success: true });
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}

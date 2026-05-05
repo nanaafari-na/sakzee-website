@@ -21,11 +21,18 @@ export async function POST(req: NextRequest) {
         const authData = await authRes.json();
         if (!authRes.ok) throw new Error(authData.msg || authData.message || 'Failed to create account');
 
-        // 2. Save vendor profile
+        // 2. Save vendor profile — status is PENDING until Sakzee admin approves
         await fetch(`${SUPABASE_URL}/rest/v1/vendors`, {
             method: 'POST',
             headers: { ...headers, 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ email, business_name, contact_name, phone, address, status: 'active' }),
+            body: JSON.stringify({
+                email,
+                business_name,
+                contact_name,
+                phone,
+                address,
+                status: 'pending',
+            }),
         });
 
         return NextResponse.json({ success: true });
