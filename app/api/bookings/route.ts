@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { notifyClientBooking } from '@/lib/notifications';
 
 export async function POST(req: NextRequest) {
     try {
@@ -20,13 +21,17 @@ export async function POST(req: NextRequest) {
 
         if (!res.ok) {
             const err = await res.text();
-            console.error('Supabase error:', err);
-            return NextResponse.json({ error: 'Failed to save booking' }, { status: 500 });
+            return NextResponse.json({ error: err }, { status: 500 });
         }
 
+        // Send confirmation notifications
+        await notifyClientBooking(
+            { email: body.email, name: body.name, phone: body.phone },
+            { reference: body.reference, service: body.service, date: body.date }
+        );
+
         return NextResponse.json({ success: true });
-    } catch (e) {
-        console.error(e);
-        return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
