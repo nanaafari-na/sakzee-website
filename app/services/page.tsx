@@ -50,6 +50,7 @@ export default function ServicesPage() {
                     <Link href="/" style={{ color: 'white', textDecoration: 'none', fontSize: '0.9rem' }}>Home</Link>
                     <Link href="/about" style={{ color: 'white', textDecoration: 'none', fontSize: '0.9rem' }}>About</Link>
                     <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Book Now</Link>
+                    <Link href="/pricing" className="nav-link">Pricing</Link>
                 </div>
             </nav>
 

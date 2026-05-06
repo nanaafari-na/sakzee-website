@@ -116,6 +116,7 @@ export default function Home() {
           <Link href="/" className="nav-link">Home</Link>
           <Link href="/services" className="nav-link">Services</Link>
           <Link href="/about" className="nav-link">About</Link>
+          <Link href="/pricing" className="nav-link">Pricing</Link>
           <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '7px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 700 }}>Book Now</Link>
         </div>
       </nav>

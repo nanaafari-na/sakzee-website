@@ -132,7 +132,12 @@ export default function BookPage() {
                 <Link href="/" style={{ color: 'white', textDecoration: 'none', fontSize: '1.4rem', fontWeight: 800 }}>
                     sak<span style={{ color: '#f97316' }}>zee</span>
                 </Link>
-                <Link href="/" style={{ color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontSize: '0.9rem' }}>← Back to Home</Link>
+                <div style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
+                    <Link href="/" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>Home</Link>
+                    <Link href="/services" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>Services</Link>
+                    <Link href="/pricing" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>Pricing</Link>
+                    <Link href="/about" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>About</Link>
+                </div>
             </nav>
 
             <div style={{ maxWidth: '560px', margin: '3rem auto', padding: '0 1rem' }}>
