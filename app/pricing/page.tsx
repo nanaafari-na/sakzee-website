@@ -266,7 +266,7 @@ export default function PricingPage() {
                     <p style={{ color: '#6b7280', fontSize: '0.92rem', marginBottom: '2.5rem', lineHeight: 1.65 }}>
                         Everything below is included in your storage or delivery fee at no extra cost
                     </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                         {[
                             { icon: '📊', title: 'Real-time Dashboard', desc: 'Live inventory counts and order tracking' },
                             { icon: '🔔', title: 'Stock Alerts', desc: 'Low stock and out of stock notifications' },

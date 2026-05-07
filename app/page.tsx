@@ -3,14 +3,47 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const SERVICES = [
-  { icon: '🏭', title: 'Warehousing & Inventory', desc: 'Secure storage with real-time tracking and daily inventory counts.' },
-  { icon: '📦', title: 'Order Fulfillment', desc: 'Pick, pack and ship — automated and fast.' },
-  { icon: '🚚', title: 'Shipping & Delivery', desc: 'Nationwide last-mile delivery from Accra to every region.' },
-  { icon: '↩️', title: 'Returns Management', desc: 'Handle returns professionally with full inspection and restocking.' },
-  { icon: '🛒', title: 'E-commerce Integration', desc: 'Connect Shopify, WooCommerce and more directly to our system.' },
+  {
+    icon: '🏭',
+    title: 'Warehousing & Inventory',
+    desc: 'Secure, monitored storage with real-time inventory tracking, daily counts and low stock alerts.',
+    tag: null,
+  },
+  {
+    icon: '📦',
+    title: 'Order Fulfillment & Returns',
+    desc: 'Pick, pack and ship every order automatically. Returns are handled with full inspection, restocking and refund processing.',
+    tag: 'Includes Returns Management',
+  },
+  {
+    icon: '🚚',
+    title: 'Shipping & Delivery',
+    desc: 'Nationwide last-mile delivery from Accra to every region. Fast, tracked and reliable.',
+    tag: null,
+  },
+  {
+    icon: '🛒',
+    title: 'E-commerce Integration',
+    desc: 'Connect Shopify, WooCommerce, Instagram and more directly to our fulfillment system.',
+    tag: null,
+  },
 ];
 
-const INDUSTRIES = ['E-commerce', 'Fashion & Apparel', 'Consumer Electronics', 'Health & Wellness', 'Food & Beverage', 'Retail & Wholesale', 'Subscription Services'];
+const INDUSTRIES = [
+  'E-commerce', 'Fashion & Apparel',
+  'Consumer Electronics', 'Health & Wellness',
+  'Food & Beverage', 'Retail & Wholesale',
+  'Subscription Services', 'Agriculture & Agribusiness',
+];
+
+const WHY = [
+  { icon: '✅', title: 'Reliability You Can Trust', desc: 'Consistent, on-time fulfillment every single order.' },
+  { icon: '🔄', title: 'Flexible Solutions', desc: 'Scale up or down — no long-term contracts required.' },
+  { icon: '🌍', title: 'Nationwide Reach', desc: 'From Accra to every region across Ghana.' },
+  { icon: '💰', title: 'Transparent Pricing', desc: 'No hidden fees. Pay only for what you use.' },
+  { icon: '👥', title: 'People-First Service', desc: 'Real humans available via phone and WhatsApp.' },
+  { icon: '⚡', title: 'Fast Turnaround', desc: 'Same-day processing and dispatch for Accra orders.' },
+];
 
 export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,20 +58,19 @@ export default function HomePage() {
           .desktop-nav { display: none !important; }
           .hamburger { display: flex !important; }
           .hero-title { font-size: 2rem !important; }
-          .hero-sub { font-size: 0.92rem !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .services-grid { grid-template-columns: 1fr !important; }
           .industries-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .why-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .cta-buttons { flex-direction: column !important; align-items: stretch !important; }
           .contact-strip { flex-direction: column !important; gap: 0.75rem !important; text-align: center; }
           .footer-grid { flex-direction: column !important; gap: 1.5rem !important; }
           .footer-links { flex-direction: column !important; gap: 1.5rem !important; }
-          .section-pad { padding: 3rem 1.25rem !important; }
-          .hero-pad { padding: 3rem 1.25rem !important; }
         }
         @media (max-width: 380px) {
           .stats-grid { grid-template-columns: 1fr !important; }
           .industries-grid { grid-template-columns: 1fr !important; }
+          .why-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -71,7 +103,7 @@ export default function HomePage() {
       )}
 
       {/* HERO */}
-      <section className="hero-pad" style={{ background: '#1a2456', padding: '5rem 2rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ background: '#1a2456', padding: 'clamp(3rem, 6vw, 5rem) 1.5rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 1, maxWidth: '700px', margin: '0 auto' }}>
           <div style={{ display: 'inline-block', background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '30px', padding: '0.32rem 0.9rem', fontSize: '0.78rem', fontWeight: 600, color: '#fba366', marginBottom: '1.25rem' }}>
             Ghana's Fulfillment Partner
@@ -79,7 +111,7 @@ export default function HomePage() {
           <h1 className="hero-title" style={{ color: 'white', fontSize: '3rem', fontWeight: 800, lineHeight: 1.15, marginBottom: '1.25rem' }}>
             Moving Dreams,<br /><span style={{ color: '#f97316' }}>Delivering Growth</span>
           </h1>
-          <p className="hero-sub" style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.05rem', lineHeight: 1.75, marginBottom: '2rem', maxWidth: '520px', margin: '0 auto 2rem' }}>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.02rem', lineHeight: 1.75, marginBottom: '2rem', maxWidth: '520px', margin: '0 auto 2rem' }}>
             From storage to delivery — we give businesses of all sizes the space, systems and support to scale freely across Ghana.
           </p>
           <div className="cta-buttons" style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -94,26 +126,32 @@ export default function HomePage() {
         <div className="stats-grid" style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
           {[['Nationwide', 'Delivery Coverage'], ['Same Day', 'Accra Delivery'], ['Real-time', 'Stock Tracking'], ['24hr', 'Quote Response']].map(([val, label]) => (
             <div key={label}>
-              <div style={{ color: 'white', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.1 }}>{val}</div>
+              <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.1 }}>{val}</div>
               <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.78rem', marginTop: '0.25rem' }}>{label}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* SERVICES */}
-      <section className="section-pad" style={{ padding: '4.5rem 2rem', background: '#f8f9ff' }}>
-        <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+      {/* SERVICES — 2x2 grid */}
+      <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 1.5rem', background: '#f8f9ff' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
             <h2 style={{ color: '#1a2456', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Our Services</h2>
             <p style={{ color: '#6b7280', fontSize: '0.92rem', maxWidth: '420px', margin: '0 auto' }}>Everything your business needs under one roof</p>
           </div>
-          <div className="services-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+          <div className="services-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem' }}>
             {SERVICES.map(s => (
-              <div key={s.title} style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1px solid #efefef', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>{s.icon}</div>
-                <h3 style={{ color: '#1a2456', fontWeight: 700, fontSize: '1rem', marginBottom: '0.5rem' }}>{s.title}</h3>
-                <p style={{ color: '#6b7280', fontSize: '0.875rem', lineHeight: 1.65 }}>{s.desc}</p>
+              <div key={s.title} style={{ background: 'white', borderRadius: '14px', padding: '1.75rem', border: '1px solid #efefef', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', position: 'relative' }}>
+                <div style={{ fontSize: '2.25rem', marginBottom: '0.85rem' }}>{s.icon}</div>
+                <h3 style={{ color: '#1a2456', fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.5rem' }}>{s.title}</h3>
+                <p style={{ color: '#6b7280', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: s.tag ? '0.85rem' : 0 }}>{s.desc}</p>
+                {s.tag && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: '#f0fdf4', color: '#15803d', fontSize: '0.75rem', fontWeight: 600, padding: '0.28rem 0.75rem', borderRadius: '20px', border: '1px solid #bbf7d0' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                    {s.tag}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -123,14 +161,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* INDUSTRIES */}
-      <section className="section-pad" style={{ padding: '4.5rem 2rem', background: 'white' }}>
+      {/* INDUSTRIES — 2x4 grid */}
+      <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 1.5rem', background: 'white' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ color: '#1a2456', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Industries We Serve</h2>
           <p style={{ color: '#6b7280', fontSize: '0.92rem', marginBottom: '2.5rem' }}>Built for every type of business</p>
-          <div className="industries-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem' }}>
+          <div className="industries-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.85rem' }}>
             {INDUSTRIES.map(ind => (
-              <div key={ind} style={{ background: '#1a2456', borderRadius: '10px', padding: '1rem', color: 'white', fontSize: '0.875rem', fontWeight: 600, textAlign: 'center' }}>
+              <div key={ind} style={{ background: '#1a2456', borderRadius: '10px', padding: '1rem 0.75rem', color: 'white', fontSize: '0.875rem', fontWeight: 600, textAlign: 'center', lineHeight: 1.4 }}>
                 {ind}
               </div>
             ))}
@@ -138,19 +176,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHY SAKZEE */}
-      <section className="section-pad" style={{ padding: '4.5rem 2rem', background: '#f8f9ff' }}>
+      {/* WHY SAKZEE — 2x3 grid */}
+      <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 1.5rem', background: '#f8f9ff' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ color: '#1a2456', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Why Choose Sakzee</h2>
           <p style={{ color: '#6b7280', fontSize: '0.92rem', marginBottom: '2.5rem' }}>More than logistics — a growth partner</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
-            {[
-              { icon: '✅', title: 'Reliability You Can Trust', desc: 'Consistent, on-time fulfillment every single order.' },
-              { icon: '🔄', title: 'Flexible Solutions', desc: 'Scale up or down — no long-term contracts required.' },
-              { icon: '🌍', title: 'Nationwide Reach', desc: 'From Accra to every region across Ghana.' },
-              { icon: '💰', title: 'Transparent Pricing', desc: 'No hidden fees. Pay only for what you use.' },
-              { icon: '👥', title: 'People-First Service', desc: 'Real humans available via phone and WhatsApp.' },
-            ].map(item => (
+          <div className="why-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem' }}>
+            {WHY.map(item => (
               <div key={item.title} style={{ background: 'white', borderRadius: '12px', padding: '1.4rem', border: '1px solid #efefef', textAlign: 'left' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{item.icon}</div>
                 <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.9rem', marginBottom: '0.35rem' }}>{item.title}</div>
@@ -162,7 +194,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="section-pad" style={{ background: '#1a2456', padding: '4rem 2rem', textAlign: 'center' }}>
+      <section style={{ background: '#1a2456', padding: 'clamp(3rem, 5vw, 4rem) 1.5rem', textAlign: 'center' }}>
         <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '0.85rem' }}>Ready to grow with Sakzee?</h2>
         <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '440px', margin: '0 auto 2rem', lineHeight: 1.7 }}>
           Join businesses across Ghana using Sakzee to store, fulfill and deliver.
@@ -192,7 +224,7 @@ export default function HomePage() {
             </div>
             <div className="footer-links" style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
               <div>
-                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Pages</div>
+                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Pages</div>
                 {[['/', 'Home'], ['/services', 'Services'], ['/pricing', 'Pricing'], ['/about', 'About'], ['/book', 'Book Now'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
                   <div key={href} style={{ marginBottom: '0.42rem' }}>
                     <Link href={href} style={{ color: 'rgba(255,255,255,0.48)', textDecoration: 'none', fontSize: '0.83rem' }}>{label}</Link>
@@ -200,7 +232,7 @@ export default function HomePage() {
                 ))}
               </div>
               <div>
-                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Contact</div>
+                <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Contact</div>
                 {[{ href: 'tel:+233256089599', label: '0256 089 599' }, { href: 'tel:+233256089598', label: '0256 089 598' }, { href: 'mailto:info@sakzee.com', label: 'info@sakzee.com' }].map(c => (
                   <div key={c.href} style={{ marginBottom: '0.42rem' }}>
                     <a href={c.href} style={{ color: 'rgba(255,255,255,0.48)', textDecoration: 'none', fontSize: '0.83rem' }}>{c.label}</a>
