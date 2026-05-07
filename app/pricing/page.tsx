@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-const storageePlans = [
+const storagePlans = [
     {
         name: 'Shelf Space',
         price: 5,
@@ -50,6 +50,15 @@ const deliveryZones = [
     { zone: 'Other Regions', distance: 'Varies', fee: null, time: 'Varies' },
 ];
 
+const included = [
+    { icon: '📊', title: 'Real-time Dashboard', desc: 'Live inventory counts and order tracking' },
+    { icon: '🔔', title: 'Stock Alerts', desc: 'Low stock and out of stock notifications' },
+    { icon: '📱', title: 'WhatsApp Updates', desc: 'Order status sent to your phone' },
+    { icon: '✉️', title: 'Email Notifications', desc: 'Confirmations and invoices by email' },
+    { icon: '🔒', title: 'Secure Storage', desc: 'CCTV monitored warehouse in Oyarifa' },
+    { icon: '📋', title: 'Monthly Invoices', desc: 'Clear itemised billing every month' },
+];
+
 const faqs = [
     {
         q: 'How is storage billed?',
@@ -89,6 +98,20 @@ export default function PricingPage() {
         .zone-row:hover { background: #f8f9ff !important; }
         .faq-item { border-bottom: 1px solid #f3f4f6; }
         .faq-item:last-child { border-bottom: none; }
+        @media (max-width: 768px) {
+          .included-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .storage-grid { grid-template-columns: 1fr !important; }
+          .fee-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 640px) {
+          .pricing-nav-links { display: none !important; }
+          .pricing-hero h1 { font-size: 2rem !important; }
+          .pricing-cta-row { flex-direction: column !important; align-items: stretch !important; }
+          .pricing-cta-row a { text-align: center !important; }
+        }
+        @media (max-width: 400px) {
+          .included-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
             {/* NAV */}
@@ -96,7 +119,7 @@ export default function PricingPage() {
                 <div style={{ color: 'white', fontSize: '1.5rem', fontWeight: 800 }}>
                     sak<span style={{ color: '#f97316' }}>zee</span>
                 </div>
-                <div style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
+                <div className="pricing-nav-links" style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
                     <Link href="/" className="nav-link">Home</Link>
                     <Link href="/services" className="nav-link">Services</Link>
                     <Link href="/about" className="nav-link">About</Link>
@@ -107,7 +130,7 @@ export default function PricingPage() {
             </nav>
 
             {/* HERO */}
-            <section style={{ background: '#1a2456', padding: '4rem 2rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+            <section className="pricing-hero" style={{ background: '#1a2456', padding: 'clamp(3rem, 5vw, 4rem) 2rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
                 <svg style={{ position: 'absolute', right: '-40px', top: '-40px', opacity: 0.055, pointerEvents: 'none' }} width="300" height="300" viewBox="0 0 300 300" fill="none">
                     <circle cx="150" cy="150" r="130" stroke="white" strokeWidth="1.5" />
                     <circle cx="150" cy="150" r="85" stroke="white" strokeWidth="1" />
@@ -127,7 +150,7 @@ export default function PricingPage() {
             </section>
 
             {/* STORAGE PRICING */}
-            <section style={{ padding: '4.5rem 2rem', background: '#f8f9ff' }}>
+            <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 2rem', background: '#f8f9ff' }}>
                 <div style={{ maxWidth: '860px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <div style={{ display: 'inline-block', background: '#fff3e8', color: '#f97316', padding: '0.28rem 0.85rem', borderRadius: '20px', fontSize: '0.74rem', fontWeight: 700, marginBottom: '0.7rem', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
@@ -139,8 +162,8 @@ export default function PricingPage() {
                         </p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                        {storageePlans.map(plan => (
+                    <div className="storage-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
+                        {storagePlans.map(plan => (
                             <div key={plan.name} className="plan-card" style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: `2px solid ${plan.border}`, position: 'relative' }}>
                                 {plan.badge && (
                                     <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', background: '#f97316', color: 'white', padding: '0.25rem 1rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700 }}>
@@ -158,7 +181,6 @@ export default function PricingPage() {
                                         ~GHS {plan.monthly} / month
                                     </div>
                                 </div>
-
                                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                     {plan.features.map(f => (
                                         <li key={f} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.875rem', color: '#374151' }}>
@@ -167,7 +189,6 @@ export default function PricingPage() {
                                         </li>
                                     ))}
                                 </ul>
-
                                 <Link href="/vendor/register" style={{ display: 'block', textAlign: 'center', background: plan.color, color: 'white', padding: '0.85rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '0.92rem' }}>
                                     Start Storing →
                                 </Link>
@@ -188,7 +209,7 @@ export default function PricingPage() {
             </section>
 
             {/* DELIVERY PRICING */}
-            <section style={{ padding: '4.5rem 2rem', background: 'white' }}>
+            <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 2rem', background: 'white' }}>
                 <div style={{ maxWidth: '860px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <div style={{ display: 'inline-block', background: '#fff3e8', color: '#f97316', padding: '0.28rem 0.85rem', borderRadius: '20px', fontSize: '0.74rem', fontWeight: 700, marginBottom: '0.7rem', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
@@ -203,7 +224,7 @@ export default function PricingPage() {
                     {/* Fee formula */}
                     <div style={{ background: '#f8f9ff', borderRadius: '14px', padding: '1.5rem', marginBottom: '2rem', border: '1px solid #e5e7eb' }}>
                         <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: '1rem' }}>How fees are calculated</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                        <div className="fee-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                             {[
                                 { label: 'Base fee', value: 'GHS 20', desc: 'Every delivery', icon: '📦' },
                                 { label: 'Distance', value: 'GHS 2/km', desc: 'From our warehouse', icon: '📍' },
@@ -223,12 +244,13 @@ export default function PricingPage() {
                     </div>
 
                     {/* Zone table */}
-                    <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #e5e7eb', overflow: 'auto', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <p style={{ color: '#9ca3af', fontSize: '0.78rem', textAlign: 'center', marginBottom: '0.5rem' }}>← Scroll to see full table on mobile →</p>
+                    <div style={{ overflowX: 'auto', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', minWidth: '520px' }}>
                             <thead>
                                 <tr style={{ background: '#1a2456' }}>
                                     {['Delivery Zone', 'Distance', 'Base Fee (under 5kg)', 'Est. Delivery Time'].map(h => (
-                                        <th key={h} style={{ padding: '0.9rem 1.1rem', textAlign: 'left', color: 'rgba(255,255,255,0.8)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{h}</th>
+                                        <th key={h} style={{ padding: '0.9rem 1.1rem', textAlign: 'left', color: 'rgba(255,255,255,0.8)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -256,8 +278,8 @@ export default function PricingPage() {
                 </div>
             </section>
 
-            {/* ALL INCLUDED */}
-            <section style={{ padding: '4.5rem 2rem', background: '#f8f9ff' }}>
+            {/* NO HIDDEN FEES — 2x3 grid */}
+            <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 2rem', background: '#f8f9ff' }}>
                 <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
                     <div style={{ display: 'inline-block', background: '#fff3e8', color: '#f97316', padding: '0.28rem 0.85rem', borderRadius: '20px', fontSize: '0.74rem', fontWeight: 700, marginBottom: '0.7rem', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
                         Always Included
@@ -266,16 +288,9 @@ export default function PricingPage() {
                     <p style={{ color: '#6b7280', fontSize: '0.92rem', marginBottom: '2.5rem', lineHeight: 1.65 }}>
                         Everything below is included in your storage or delivery fee at no extra cost
                     </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                        {[
-                            { icon: '📊', title: 'Real-time Dashboard', desc: 'Live inventory counts and order tracking' },
-                            { icon: '🔔', title: 'Stock Alerts', desc: 'Low stock and out of stock notifications' },
-                            { icon: '📱', title: 'WhatsApp Updates', desc: 'Order status sent to your phone' },
-                            { icon: '✉️', title: 'Email Notifications', desc: 'Confirmations and invoices by email' },
-                            { icon: '🔒', title: 'Secure Storage', desc: 'CCTV monitored warehouse in Oyarifa' },
-                            { icon: '📋', title: 'Monthly Invoices', desc: 'Clear itemised billing every month' },
-                        ].map(item => (
-                            <div key={item.title} style={{ background: 'white', borderRadius: '12px', padding: '1.4rem', border: '1px solid #efefef', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div className="included-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                        {included.map(item => (
+                            <div key={item.title} style={{ background: 'white', borderRadius: '12px', padding: '1.4rem', border: '1px solid #efefef', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', textAlign: 'left' }}>
                                 <div style={{ fontSize: '1.75rem', marginBottom: '0.6rem' }}>{item.icon}</div>
                                 <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.9rem', marginBottom: '0.3rem' }}>{item.title}</div>
                                 <div style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.55 }}>{item.desc}</div>
@@ -286,7 +301,7 @@ export default function PricingPage() {
             </section>
 
             {/* FAQ */}
-            <section style={{ padding: '4.5rem 2rem', background: 'white' }}>
+            <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 2rem', background: 'white' }}>
                 <div style={{ maxWidth: '680px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                         <h2 style={{ color: '#1a2456', fontSize: '1.85rem', fontWeight: 800, margin: '0 0 0.55rem' }}>Frequently Asked Questions</h2>
@@ -307,16 +322,16 @@ export default function PricingPage() {
             </section>
 
             {/* CTA */}
-            <section style={{ padding: '4.5rem 2rem', background: '#f97316', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+            <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 2rem', background: '#f97316', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
                 <svg style={{ position: 'absolute', right: '-20px', top: '-20px', opacity: 0.07, pointerEvents: 'none' }} width="220" height="220" viewBox="0 0 220 220" fill="none">
                     <circle cx="110" cy="110" r="100" stroke="white" strokeWidth="1.5" />
                     <circle cx="110" cy="110" r="65" stroke="white" strokeWidth="1" />
                 </svg>
                 <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, margin: '0 0 0.85rem' }}>Ready to get started?</h2>
-                <p style={{ color: 'rgba(255,255,255,0.85)', marginBottom: '2.25rem', fontSize: '0.97rem', maxWidth: '420px', margin: '0 auto 2.25rem', lineHeight: 1.65 }}>
+                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.97rem', maxWidth: '420px', margin: '0 auto 2.25rem', lineHeight: 1.65 }}>
                     Register as a vendor and start storing and delivering across Ghana today.
                 </p>
-                <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <div className="pricing-cta-row" style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Link href="/vendor/register" style={{ background: 'white', color: '#f97316', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 800, fontSize: '0.97rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                         Become a Vendor
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
