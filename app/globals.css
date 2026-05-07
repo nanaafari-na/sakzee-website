@@ -24,3 +24,113 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Sakzee Global Mobile Styles ── */
+
+* {
+  box-sizing: border-box;
+}
+
+/* Delivery zone table — horizontal scroll on mobile */
+.table-scroll-mobile {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 14px;
+}
+
+/* Admin tabs — wrap on mobile */
+.admin-tabs {
+  flex-wrap: wrap;
+}
+
+/* Pricing page zone table hint */
+.scroll-hint {
+  display: none;
+}
+
+@media (max-width: 640px) {
+
+  /* Show scroll hint on mobile */
+  .scroll-hint {
+    display: block;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Admin tab nav wraps */
+  .admin-tabs {
+    gap: 0.25rem !important;
+  }
+
+  .admin-tabs button {
+    font-size: 0.78rem !important;
+    padding: 0.4rem 0.65rem !important;
+  }
+
+  /* Stat grids go 2 columns */
+  .stat-grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Report tabs wrap */
+  .report-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .report-tabs button {
+    font-size: 0.8rem !important;
+    padding: 0.45rem 0.85rem !important;
+  }
+
+  /* Section padding reduction */
+  .page-section {
+    padding: 3rem 1.25rem !important;
+  }
+
+  /* CTA buttons stack */
+  .cta-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .cta-row a,
+  .cta-row button {
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+  /* Vendor order progress steps — smaller */
+  .progress-step-label {
+    font-size: 0.55rem !important;
+  }
+
+  /* Modal full screen on mobile */
+  .modal-inner {
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Floating WhatsApp button — smaller on mobile */
+  .whatsapp-float {
+    padding: 0.65rem 1rem !important;
+    font-size: 0.82rem !important;
+    bottom: 1.25rem !important;
+    right: 1.25rem !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .stat-grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+}
