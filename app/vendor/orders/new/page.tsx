@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Script from 'next/script';
+import Link from 'next/link';
+import VendorNav from '@/components/VendorNav';
 
 declare global { interface Window { PaystackPop: any; } }
 
@@ -48,6 +48,16 @@ export default function NewOrderPage() {
         loadProducts(id, token);
     }, []);
 
+    useEffect(() => {
+        const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
+        if (existing) return;
+        const script = document.createElement('script');
+        script.src = 'https://js.paystack.co/v1/inline.js';
+        script.async = true;
+        document.body.appendChild(script);
+        return () => { if (document.body.contains(script)) document.body.removeChild(script); };
+    }, []);
+
     async function loadProducts(id: string, token: string) {
         try {
             const res = await fetch(`/api/vendor/products?vendor_id=${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -58,11 +68,8 @@ export default function NewOrderPage() {
 
     function toggleItem(product: Product) {
         const exists = selectedItems.find(i => i.product_id === product.id);
-        if (exists) {
-            setSelectedItems(prev => prev.filter(i => i.product_id !== product.id));
-        } else {
-            setSelectedItems(prev => [...prev, { product_id: product.id, product_name: product.name, quantity: 1 }]);
-        }
+        if (exists) setSelectedItems(prev => prev.filter(i => i.product_id !== product.id));
+        else setSelectedItems(prev => [...prev, { product_id: product.id, product_name: product.name, quantity: 1 }]);
     }
 
     function updateQty(product_id: string, qty: number) {
@@ -85,10 +92,10 @@ export default function NewOrderPage() {
 
     function initPaystack() {
         setLoading(true);
-        const ref = `SORDER-${Date.now()}`;
         const token = localStorage.getItem('vendor_token');
         const vendor_id = localStorage.getItem('vendor_id');
         const vendorEmail = localStorage.getItem('vendor_email') || 'vendor@sakzee.com';
+        const ref = `SORDER-${Date.now()}`;
 
         const handler = window.PaystackPop.setup({
             key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || 'pk_test_6acba43a4893ab00f1a9618f7e84e5a471fe16ac',
@@ -96,13 +103,8 @@ export default function NewOrderPage() {
             amount: deliveryFee * 100,
             currency: 'GHS',
             ref,
-            callback: function () {
-                saveOrder(ref, token!, vendor_id!);
-            },
-            onClose: function () {
-                setLoading(false);
-                setError('Payment cancelled. Please try again.');
-            },
+            callback: function () { saveOrder(ref, token!, vendor_id!); },
+            onClose: function () { setLoading(false); setError('Payment cancelled. Please try again.'); },
         });
         handler.openIframe();
     }
@@ -129,20 +131,23 @@ export default function NewOrderPage() {
     const lbl: React.CSSProperties = { display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' };
 
     if (success) return (
-        <div style={{ minHeight: '100vh', background: '#f8f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', sans-serif", padding: '2rem' }}>
-            <div style={{ background: 'white', borderRadius: '16px', padding: '3rem', textAlign: 'center', maxWidth: '460px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-                <div style={{ width: '56px', height: '56px', background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                </div>
-                <h2 style={{ color: '#1a2456', fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>Order Created!</h2>
-                <p style={{ color: '#666', lineHeight: 1.7, marginBottom: '1rem', fontSize: '0.92rem' }}>Your order has been placed and Sakzee will begin fulfillment shortly.</p>
-                <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', marginBottom: '1.75rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: '0.25rem' }}>Order Reference</div>
-                    <div style={{ fontWeight: 800, color: '#1a2456', fontSize: '1rem', letterSpacing: '0.03em', fontFamily: 'monospace' }}>{orderRef}</div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                    <Link href="/vendor/orders" style={{ background: '#1a2456', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>View Orders</Link>
-                    <Link href="/vendor/dashboard" style={{ background: '#f97316', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Dashboard</Link>
+        <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
+            <VendorNav />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem' }}>
+                <div style={{ background: 'white', borderRadius: '16px', padding: '3rem', textAlign: 'center', maxWidth: '460px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+                    <div style={{ width: '56px', height: '56px', background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                    </div>
+                    <h2 style={{ color: '#1a2456', fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>Order Created!</h2>
+                    <p style={{ color: '#666', lineHeight: 1.7, marginBottom: '1rem', fontSize: '0.92rem' }}>Your order has been placed and Sakzee will begin fulfillment shortly.</p>
+                    <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', marginBottom: '1.75rem' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: '0.25rem' }}>Order Reference</div>
+                        <div style={{ fontWeight: 800, color: '#1a2456', fontSize: '1rem', letterSpacing: '0.03em', fontFamily: 'monospace' }}>{orderRef}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                        <Link href="/vendor/orders" style={{ background: '#1a2456', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>View Orders</Link>
+                        <Link href="/vendor/dashboard" style={{ background: '#f97316', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Dashboard</Link>
+                    </div>
                 </div>
             </div>
         </div>
@@ -150,20 +155,17 @@ export default function NewOrderPage() {
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
-            <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
-            <nav style={{ background: '#1a2456', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Link href="/vendor/dashboard" style={{ color: 'white', textDecoration: 'none', fontSize: '1.4rem', fontWeight: 800 }}>sak<span style={{ color: '#f97316' }}>zee</span></Link>
-                <Link href="/vendor/orders" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: '0.9rem' }}>← Back to Orders</Link>
-            </nav>
+            <VendorNav />
 
             <div style={{ maxWidth: '580px', margin: '3rem auto', padding: '0 1rem' }}>
+                {/* Step indicators */}
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
                     {['Select Items', 'Delivery Details', 'Pay & Confirm'].map((label, i) => (
                         <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <div style={{ width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: step > i + 1 ? '#22c55e' : step === i + 1 ? '#1a2456' : '#e2e8f0', color: step >= i + 1 ? 'white' : '#999', fontSize: '0.78rem', fontWeight: 700, flexShrink: 0 }}>
                                 {step > i + 1 ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg> : i + 1}
                             </div>
-                            <span style={{ fontSize: '0.78rem', color: step === i + 1 ? '#1a2456' : '#999', fontWeight: step === i + 1 ? 600 : 400, whiteSpace: 'nowrap' }}>{label}</span>
+                            <span style={{ fontSize: '0.78rem', color: step === i + 1 ? '#1a2456' : '#999', fontWeight: step === i + 1 ? 600 : 400, whiteSpace: 'nowrap' as const }}>{label}</span>
                             {i < 2 && <div style={{ width: '18px', height: '2px', background: step > i + 1 ? '#22c55e' : '#e2e8f0', flexShrink: 0 }} />}
                         </div>
                     ))}
@@ -179,6 +181,7 @@ export default function NewOrderPage() {
 
                     {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem 1rem', color: '#dc2626', fontSize: '0.875rem', marginBottom: '1.25rem' }}>{error}</div>}
 
+                    {/* STEP 1 */}
                     {step === 1 && (
                         <div>
                             {products.length === 0 ? (
@@ -216,19 +219,20 @@ export default function NewOrderPage() {
                         </div>
                     )}
 
+                    {/* STEP 2 */}
                     {step === 2 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div><label style={lbl}>Recipient Name *</label><input style={inp} name="recipient_name" value={form.recipient_name} onChange={e => setForm({ ...form, recipient_name: e.target.value })} placeholder="Who receives the delivery?" /></div>
-                            <div><label style={lbl}>Recipient Phone *</label><input style={inp} name="recipient_phone" value={form.recipient_phone} onChange={e => setForm({ ...form, recipient_phone: e.target.value })} placeholder="0XX XXX XXXX" /></div>
-                            <div><label style={lbl}>Delivery Address *</label><input style={inp} name="delivery_address" value={form.delivery_address} onChange={e => setForm({ ...form, delivery_address: e.target.value })} placeholder="Full delivery address" /></div>
+                            <div><label style={lbl}>Recipient Name *</label><input style={inp} value={form.recipient_name} onChange={e => setForm({ ...form, recipient_name: e.target.value })} placeholder="Who receives the delivery?" /></div>
+                            <div><label style={lbl}>Recipient Phone *</label><input style={inp} value={form.recipient_phone} onChange={e => setForm({ ...form, recipient_phone: e.target.value })} placeholder="0XX XXX XXXX" /></div>
+                            <div><label style={lbl}>Delivery Address *</label><input style={inp} value={form.delivery_address} onChange={e => setForm({ ...form, delivery_address: e.target.value })} placeholder="Full delivery address" /></div>
                             <div>
                                 <label style={lbl}>Region *</label>
-                                <select style={{ ...inp, appearance: 'none' as const }} name="region" value={form.region} onChange={e => setForm({ ...form, region: e.target.value })}>
+                                <select style={{ ...inp, appearance: 'none' as const }} value={form.region} onChange={e => setForm({ ...form, region: e.target.value })}>
                                     <option value="">Select a region</option>
                                     {REGIONS.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
                                 </select>
                             </div>
-                            <div><label style={lbl}>Total Weight (kg)</label><input style={inp} name="weight_kg" type="number" min="0" step="0.1" value={form.weight_kg} onChange={e => setForm({ ...form, weight_kg: e.target.value })} placeholder="Estimated weight in kg" /></div>
+                            <div><label style={lbl}>Total Weight (kg)</label><input style={inp} type="number" min="0" step="0.1" value={form.weight_kg} onChange={e => setForm({ ...form, weight_kg: e.target.value })} placeholder="Estimated weight in kg" /></div>
                             {form.region && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
                                     <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Delivery fee estimate</div>
@@ -238,7 +242,7 @@ export default function NewOrderPage() {
                                     </div>
                                     {weight > WEIGHT_THRESHOLD && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                            <span style={{ color: '#374151' }}>Weight surcharge ({(weight - WEIGHT_THRESHOLD).toFixed(1)}kg over {WEIGHT_THRESHOLD}kg)</span>
+                                            <span style={{ color: '#374151' }}>Weight surcharge</span>
                                             <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((weight - WEIGHT_THRESHOLD) * PER_KG_OVER)}</span>
                                         </div>
                                     )}
@@ -251,6 +255,7 @@ export default function NewOrderPage() {
                         </div>
                     )}
 
+                    {/* STEP 3 */}
                     {step === 3 && (
                         <div>
                             <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
@@ -264,7 +269,7 @@ export default function NewOrderPage() {
                                         </div>
                                     ))}
                                 </div>
-                                {[['Recipient', form.recipient_name], ['Phone', form.recipient_phone], ['Address', form.delivery_address], ['Region', form.region], ['Weight', `${weight}kg`]].map(([k, v]) => (
+                                {([['Recipient', form.recipient_name], ['Phone', form.recipient_phone], ['Address', form.delivery_address], ['Region', form.region], ['Weight', `${weight}kg`]] as [string, string][]).map(([k, v]) => (
                                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0', borderTop: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
                                         <span style={{ color: '#6b7280' }}>{k}</span>
                                         <span style={{ color: '#1a2456', fontWeight: 500 }}>{v}</span>
