@@ -19,7 +19,7 @@ const services = [
         pricing: 'Included',
         pricingNote: 'with warehousing',
         desc: 'From receiving orders to packed and shipped — we handle picking, packing, labeling, dispatch and returns processing.',
-        features: ['Automated order processing', 'Custom packaging & branding', 'Same-day processing', 'Quality checks on every order', 'Bulk order handling'],
+        features: ['Automated order processing', 'Custom packaging & branding', 'Same-day processing', 'Quality checks on every order', 'Returns handling included'],
         embedded: null,
         cta: 'Get Started',
         ctaLink: '/vendor/register',
@@ -131,24 +131,6 @@ export default function ServicesPage() {
                                         </li>
                                     ))}
                                 </ul>
-
-                                {/* Embedded Returns section */}
-                                {s.embedded && (
-                                    <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #e5e7eb' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                                            <span style={{ fontSize: '1rem' }}>↩️</span>
-                                            <span style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.85rem' }}>{s.embedded.title}</span>
-                                        </div>
-                                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                                            {s.embedded.features.map(f => (
-                                                <li key={f} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#6b7280' }}>
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                                                    {f}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
 
                                 {/* CTAs */}
                                 <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
