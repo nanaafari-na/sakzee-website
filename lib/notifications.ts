@@ -57,13 +57,13 @@ export async function notifyVendorApproved(vendor: { email: string; business_nam
     <h2 style="color:#1a2456;margin:0 0 0.75rem;">Welcome to Sakzee, ${vendor.business_name}! 🎉</h2>
     <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your vendor account has been <strong style="color:#15803d;">approved</strong>. You can now log in and start storing inventory and creating orders.</p>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee-website.vercel.app/vendor/login" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">
+      <a href="https://sakzee.com/vendor/login" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">
         Log In to Your Dashboard →
       </a>
     </div>
     <p style="color:#6b7280;font-size:0.875rem;line-height:1.7;">Questions? Reply to this email or WhatsApp us on <strong>0256 089 599</strong>.</p>
   `);
-  const wa = `✅ *Sakzee Vendor Approved!*\n\nHi ${vendor.contact_name}, your vendor account for *${vendor.business_name}* has been approved! 🎉\n\nLog in here: https://sakzee-website.vercel.app/vendor/login\n\nQuestions? Call or WhatsApp: 0256 089 599`;
+  const wa = `✅ *Sakzee Vendor Approved!*\n\nHi ${vendor.contact_name}, your vendor account for *${vendor.business_name}* has been approved! 🎉\n\nLog in here: https://sakzee.com/vendor/login\n\nQuestions? Call or WhatsApp: 0256 089 599`;
   await Promise.all([sendEmail(vendor.email, subject, html), sendWhatsApp(vendor.phone, wa)]);
 }
 
@@ -96,12 +96,12 @@ export async function notifyInventoryCheckedIn(vendor: { email: string; business
     </div>
     <p style="color:#374151;line-height:1.7;">This product is now available in your delivery orders.</p>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee-website.vercel.app/vendor/orders/new" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">
+      <a href="https://sakzee.com/vendor/orders/new" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">
         Create a Delivery Order →
       </a>
     </div>
   `);
-  const wa = `📦 *Inventory Received - Sakzee*\n\nHi ${vendor.contact_name}!\n\n• *Product:* ${product.name}\n• *Quantity:* ${product.quantity} units\n• *Space:* ${product.space_type === 'pallet' ? 'Pallet' : 'Shelf'}\n\nReady to create orders: https://sakzee-website.vercel.app/vendor/orders/new`;
+  const wa = `📦 *Inventory Received - Sakzee*\n\nHi ${vendor.contact_name}!\n\n• *Product:* ${product.name}\n• *Quantity:* ${product.quantity} units\n• *Space:* ${product.space_type === 'pallet' ? 'Pallet' : 'Shelf'}\n\nReady to create orders: https://sakzee.com/vendor/orders/new`;
   await Promise.all([sendEmail(vendor.email, subject, html), sendWhatsApp(vendor.phone, wa)]);
 }
 
@@ -127,10 +127,10 @@ export async function notifyVendorOrderStatus(vendor: { email: string; contact_n
       </table>
     </div>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee-website.vercel.app/vendor/orders" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">View All Orders →</a>
+      <a href="https://sakzee.com/vendor/orders" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">View All Orders →</a>
     </div>
   `);
-  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${vendor.contact_name}!\n\n${s.msg}\n\n• *Reference:* ${order.reference}\n• *Status:* ${order.status}\n• *Recipient:* ${order.recipient_name}\n• *Address:* ${order.delivery_address}\n\nView orders: https://sakzee-website.vercel.app/vendor/orders`;
+  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${vendor.contact_name}!\n\n${s.msg}\n\n• *Reference:* ${order.reference}\n• *Status:* ${order.status}\n• *Recipient:* ${order.recipient_name}\n• *Address:* ${order.delivery_address}\n\nView orders: https://sakzee.com/vendor/orders`;
   await Promise.all([sendEmail(vendor.email, subject, html), sendWhatsApp(vendor.phone, wa)]);
 }
 
@@ -148,11 +148,11 @@ export async function notifyClientBooking(client: { email: string; name: string;
     </div>
     <p style="color:#374151;line-height:1.7;">Save your reference number to track your request.</p>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee-website.vercel.app/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Track Your Request →</a>
+      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Track Your Request →</a>
     </div>
     <p style="color:#6b7280;font-size:0.875rem;">Questions? Call <strong>0256 089 599</strong> or WhatsApp us.</p>
   `);
-  const wa = `🎉 *Request Received - Sakzee*\n\nHi ${client.name}!\n\nYour request is confirmed:\n• *Reference:* ${booking.reference}\n• *Service:* ${booking.service}\n• *Preferred Date:* ${booking.date}\n\nWe will contact you within 24 hours with a quote.\n\nTrack: https://sakzee-website.vercel.app/track\nQuestions? Call: 0256 089 599`;
+  const wa = `🎉 *Request Received - Sakzee*\n\nHi ${client.name}!\n\nYour request is confirmed:\n• *Reference:* ${booking.reference}\n• *Service:* ${booking.service}\n• *Preferred Date:* ${booking.date}\n\nWe will contact you within 24 hours with a quote.\n\nTrack: https://sakzee.com/track\nQuestions? Call: 0256 089 599`;
   await Promise.all([sendEmail(client.email, subject, html), sendWhatsApp(client.phone, wa)]);
 }
 
@@ -177,9 +177,9 @@ export async function notifyClientOrderStatus(client: { email: string; name: str
       </table>
     </div>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee-website.vercel.app/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Track Your Order →</a>
+      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Track Your Order →</a>
     </div>
   `);
-  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${client.name}!\n\n${s.msg}\n\n• *Reference:* ${booking.reference}\n• *Service:* ${booking.service}\n• *Status:* ${booking.status}\n\nTrack: https://sakzee-website.vercel.app/track`;
+  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${client.name}!\n\n${s.msg}\n\n• *Reference:* ${booking.reference}\n• *Service:* ${booking.service}\n• *Status:* ${booking.status}\n\nTrack: https://sakzee.com/track`;
   await Promise.all([sendEmail(client.email, subject, html), sendWhatsApp(client.phone, wa)]);
 }
