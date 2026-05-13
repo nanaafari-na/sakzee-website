@@ -3,30 +3,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const SERVICES = [
-  {
-    icon: '🏭',
-    title: 'Warehousing & Inventory',
-    desc: 'Secure, monitored storage with real-time inventory tracking, daily counts and low stock alerts.',
-    tag: null,
-  },
-  {
-    icon: '📦',
-    title: 'Order Fulfillment & Returns',
-    desc: 'Pick, pack and ship every order automatically. Returns are handled with full inspection, restocking and refund processing.',
-    tag: 'Includes Returns Management',
-  },
-  {
-    icon: '🚚',
-    title: 'Shipping & Delivery',
-    desc: 'Nationwide last-mile delivery from Accra to every region. Fast, tracked and reliable.',
-    tag: null,
-  },
-  {
-    icon: '🛒',
-    title: 'E-commerce Integration',
-    desc: 'Connect Shopify, WooCommerce, Instagram and more directly to our fulfillment system.',
-    tag: null,
-  },
+  { icon: '🏭', title: 'Warehousing & Inventory', desc: 'Secure storage with real-time tracking and daily inventory counts.' },
+  { icon: '📦', title: 'Order Fulfillment & Returns', desc: 'Pick, pack, ship and handle returns — automated and fast.' },
+  { icon: '🚚', title: 'Shipping & Delivery', desc: 'Nationwide last-mile delivery from Accra to every region.' },
+  { icon: '🛒', title: 'E-commerce Integration', desc: 'Connect Shopify, WooCommerce and more directly to our system.' },
 ];
 
 const INDUSTRIES = [
@@ -54,6 +34,9 @@ export default function HomePage() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         .nav-link { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; }
         .nav-link:hover { color: white; }
+        /* Desktop: show all CTA buttons */
+        .hero-cta-desktop { display: flex; }
+        .hero-cta-mobile { display: none; }
         @media (max-width: 640px) {
           .desktop-nav { display: none !important; }
           .hamburger { display: flex !important; }
@@ -62,16 +45,20 @@ export default function HomePage() {
           .services-grid { grid-template-columns: 1fr !important; }
           .industries-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .why-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .cta-buttons { flex-direction: column !important; align-items: stretch !important; }
           .contact-strip { flex-direction: column !important; gap: 0.75rem !important; text-align: center; }
           .footer-grid { flex-direction: column !important; gap: 1.5rem !important; }
           .footer-links { flex-direction: column !important; gap: 1.5rem !important; }
+          /* Mobile: swap hero buttons */
+          .hero-cta-desktop { display: none !important; }
+          .hero-cta-mobile { display: flex !important; flex-direction: column; align-items: stretch; gap: 0.75rem; }
+          .delivery-banner { display: block !important; }
         }
         @media (max-width: 380px) {
           .stats-grid { grid-template-columns: 1fr !important; }
           .industries-grid { grid-template-columns: 1fr !important; }
           .why-grid { grid-template-columns: 1fr !important; }
         }
+        .delivery-banner { display: none; }
       `}</style>
 
       {/* NAV */}
@@ -84,7 +71,9 @@ export default function HomePage() {
           <Link href="/pricing" className="nav-link">Pricing</Link>
           <Link href="/about" className="nav-link">About</Link>
           <Link href="/track" className="nav-link">Track</Link>
-          <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Book Now</Link>
+          <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 700 }}>
+            🚚 Book Delivery
+          </Link>
         </div>
         <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)} style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', flexDirection: 'column', gap: '5px', padding: '4px' }}>
           {[0, 1, 2].map(i => <span key={i} style={{ display: 'block', width: '22px', height: '2px', background: 'white', borderRadius: '2px' }} />)}
@@ -97,7 +86,9 @@ export default function HomePage() {
           {[['/', 'Home'], ['/services', 'Services'], ['/pricing', 'Pricing'], ['/about', 'About'], ['/track', 'Track Order']].map(([href, label]) => (
             <Link key={href} href={href} onClick={() => setMenuOpen(false)} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500 }}>{label}</Link>
           ))}
-          <Link href="/book" onClick={() => setMenuOpen(false)} style={{ background: '#f97316', color: 'white', padding: '0.75rem 1.25rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, textAlign: 'center', marginTop: '0.25rem' }}>Book Now</Link>
+          <Link href="/book/delivery" onClick={() => setMenuOpen(false)} style={{ background: '#f97316', color: 'white', padding: '0.75rem 1.25rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, textAlign: 'center', marginTop: '0.25rem' }}>
+            🚚 Book a Delivery
+          </Link>
           <Link href="/vendor/login" onClick={() => setMenuOpen(false)} style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: '0.85rem', textAlign: 'center' }}>Vendor Login</Link>
         </div>
       )}
@@ -114,26 +105,62 @@ export default function HomePage() {
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.02rem', lineHeight: 1.75, marginBottom: '2rem', maxWidth: '520px', margin: '0 auto 2rem' }}>
             From storage to delivery — we give businesses of all sizes the space, systems and support to scale freely across Ghana.
           </p>
-          <div className="cta-buttons" style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '1rem', display: 'inline-block', textAlign: 'center' }}>Get Started</Link>
-            <Link href="/vendor/register" style={{ background: 'transparent', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '1rem', border: '2px solid rgba(255,255,255,0.35)', display: 'inline-block', textAlign: 'center' }}>Become a Vendor</Link>
+
+          {/* DESKTOP CTAs */}
+          <div className="hero-cta-desktop" style={{ gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              🚚 Book a Delivery
+            </Link>
+            <Link href="/book" style={{ background: 'transparent', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '1rem', border: '2px solid rgba(255,255,255,0.35)', display: 'inline-block', textAlign: 'center' }}>
+              Other Services
+            </Link>
+            <Link href="/vendor/register" style={{ background: 'transparent', color: 'rgba(255,255,255,0.7)', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 500, fontSize: '0.95rem', border: '1px solid rgba(255,255,255,0.2)', display: 'inline-block', textAlign: 'center' }}>
+              Become a Vendor
+            </Link>
+          </div>
+
+          {/* MOBILE CTAs */}
+          <div className="hero-cta-mobile" style={{ gap: '0.75rem', maxWidth: '360px', margin: '0 auto' }}>
+            <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '1rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '1.05rem', textAlign: 'center', display: 'block' }}>
+              🚚 Book a Delivery Now
+            </Link>
+            <div style={{ display: 'flex', gap: '0.65rem' }}>
+              <Link href="/book" style={{ flex: 1, background: 'transparent', color: 'white', padding: '0.8rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.35)', textAlign: 'center', display: 'block' }}>Other Services</Link>
+              <Link href="/vendor/register" style={{ flex: 1, background: 'transparent', color: 'rgba(255,255,255,0.75)', padding: '0.8rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 500, fontSize: '0.9rem', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center', display: 'block' }}>Be a Vendor</Link>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* DELIVERY HIGHLIGHT BANNER */}
+      <section style={{ background: '#f97316', padding: '1.5rem 1.5rem' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '1.75rem' }}>🚚</span>
+            <div>
+              <div style={{ color: 'white', fontWeight: 800, fontSize: '1rem' }}>Same-day delivery across Accra</div>
+              <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem' }}>From GHS 45 · Pay now · Instant confirmation</div>
+            </div>
+          </div>
+          <Link href="/book/delivery" style={{ background: 'white', color: '#f97316', padding: '0.7rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 800, fontSize: '0.9rem', whiteSpace: 'nowrap' as const }}>
+            Book Now →
+          </Link>
+        </div>
+      </section>
+
       {/* STATS */}
-      <section style={{ background: '#f97316', padding: '2.5rem 1.5rem' }}>
+      <section style={{ background: '#1a2456', padding: '2.5rem 1.5rem' }}>
         <div className="stats-grid" style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
-          {[['Nationwide', 'Delivery Coverage'], ['Same Day', 'Accra Delivery'], ['Real-time', 'Stock Tracking'], ['24hr', 'Quote Response']].map(([val, label]) => (
+          {[['Same Day', 'Accra Delivery'], ['Nationwide', 'Coverage'], ['Real-time', 'Tracking'], ['Instant', 'Confirmation']].map(([val, label]) => (
             <div key={label}>
               <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.1 }}>{val}</div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.78rem', marginTop: '0.25rem' }}>{label}</div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem', marginTop: '0.25rem' }}>{label}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* SERVICES — 2x2 grid */}
+      {/* SERVICES — 2x2 */}
       <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 1.5rem', background: '#f8f9ff' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
@@ -142,16 +169,10 @@ export default function HomePage() {
           </div>
           <div className="services-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem' }}>
             {SERVICES.map(s => (
-              <div key={s.title} style={{ background: 'white', borderRadius: '14px', padding: '1.75rem', border: '1px solid #efefef', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', position: 'relative' }}>
+              <div key={s.title} style={{ background: 'white', borderRadius: '14px', padding: '1.75rem', border: '1px solid #efefef', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                 <div style={{ fontSize: '2.25rem', marginBottom: '0.85rem' }}>{s.icon}</div>
                 <h3 style={{ color: '#1a2456', fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.5rem' }}>{s.title}</h3>
-                <p style={{ color: '#6b7280', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: s.tag ? '0.85rem' : 0 }}>{s.desc}</p>
-                {s.tag && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: '#f0fdf4', color: '#15803d', fontSize: '0.75rem', fontWeight: 600, padding: '0.28rem 0.75rem', borderRadius: '20px', border: '1px solid #bbf7d0' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                    {s.tag}
-                  </div>
-                )}
+                <p style={{ color: '#6b7280', fontSize: '0.875rem', lineHeight: 1.7 }}>{s.desc}</p>
               </div>
             ))}
           </div>
@@ -161,7 +182,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* INDUSTRIES — 2x4 grid */}
+      {/* INDUSTRIES — 2x4 */}
       <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 1.5rem', background: 'white' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ color: '#1a2456', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Industries We Serve</h2>
@@ -176,7 +197,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHY SAKZEE — 2x3 grid */}
+      {/* WHY SAKZEE — 2x3 */}
       <section style={{ padding: 'clamp(3rem, 5vw, 4.5rem) 1.5rem', background: '#f8f9ff' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ color: '#1a2456', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Why Choose Sakzee</h2>
@@ -195,13 +216,17 @@ export default function HomePage() {
 
       {/* CTA */}
       <section style={{ background: '#1a2456', padding: 'clamp(3rem, 5vw, 4rem) 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '0.85rem' }}>Ready to grow with Sakzee?</h2>
+        <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '0.85rem' }}>Ready to move with Sakzee?</h2>
         <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.95rem', marginBottom: '2rem', maxWidth: '440px', margin: '0 auto 2rem', lineHeight: 1.7 }}>
-          Join businesses across Ghana using Sakzee to store, fulfill and deliver.
+          Book a delivery now or register as a vendor to access our full fulfillment platform.
         </p>
-        <div className="cta-buttons" style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '0.97rem', display: 'inline-block', textAlign: 'center' }}>Book a Consultation</Link>
-          <Link href="/vendor/register" style={{ background: 'transparent', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '0.97rem', border: '2px solid rgba(255,255,255,0.35)', display: 'inline-block', textAlign: 'center' }}>Become a Vendor</Link>
+        <div style={{ display: 'flex', gap: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '0.97rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            🚚 Book a Delivery
+          </Link>
+          <Link href="/vendor/register" style={{ background: 'transparent', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '0.97rem', border: '2px solid rgba(255,255,255,0.35)', display: 'inline-block', textAlign: 'center' }}>
+            Become a Vendor
+          </Link>
         </div>
       </section>
 
@@ -225,7 +250,7 @@ export default function HomePage() {
             <div className="footer-links" style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Pages</div>
-                {[['/', 'Home'], ['/services', 'Services'], ['/pricing', 'Pricing'], ['/about', 'About'], ['/book', 'Book Now'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
+                {[['/', 'Home'], ['/services', 'Services'], ['/pricing', 'Pricing'], ['/about', 'About'], ['/book/delivery', 'Book a Delivery'], ['/book', 'Other Services'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
                   <div key={href} style={{ marginBottom: '0.42rem' }}>
                     <Link href={href} style={{ color: 'rgba(255,255,255,0.48)', textDecoration: 'none', fontSize: '0.83rem' }}>{label}</Link>
                   </div>
@@ -249,7 +274,7 @@ export default function HomePage() {
       </footer>
 
       {/* FLOATING WHATSAPP */}
-      <a href="https://wa.me/233256089599?text=Hi%20Sakzee!%20I%20would%20like%20to%20know%20more%20about%20your%20services." target="_blank" rel="noopener noreferrer"
+      <a href="https://wa.me/233256089599?text=Hi%20Sakzee!%20I%20would%20like%20to%20book%20a%20delivery." target="_blank" rel="noopener noreferrer"
         style={{ position: 'fixed', bottom: '1.75rem', right: '1.75rem', zIndex: 999, background: '#25D366', color: 'white', borderRadius: '50px', padding: '0.8rem 1.3rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.55rem', fontWeight: 700, fontSize: '0.88rem', boxShadow: '0 4px 20px rgba(37,211,102,0.35)' }}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
