@@ -108,6 +108,7 @@ export async function notifyVendorApproved(vendor: {
     () => sendWhatsApp(vendor.phone, TEMPLATES.vendor_approved, {
       '1': vendor.business_name,
     })
+
   );
 }
 
@@ -131,9 +132,8 @@ export async function notifyVendorSuspended(vendor: {
   await notify(pref,
     () => sendEmail(vendor.email, '⚠️ Your Sakzee vendor account has been suspended', html),
     () => sendWhatsApp(vendor.phone, TEMPLATES.vendor_suspended, {
-      '1': vendor.contact_name,
-      '2': vendor.business_name,
-      '3': vendor.suspension_reason,
+      '1': vendor.business_name,
+      '2': vendor.suspension_reason,
     })
   );
 }
@@ -167,6 +167,7 @@ export async function notifyInventoryCheckedIn(
       '2': product.name,
       '3': String(product.quantity),
     })
+
   );
 }
 
@@ -208,7 +209,6 @@ export async function notifyVendorOrderStatus(
       '2': order.reference,
       '3': order.status,
       '4': order.recipient_name,
-      '5': order.delivery_address,
     })
   );
 }
@@ -238,7 +238,7 @@ export async function notifyClientBooking(
 
   // Split date and time for template variables
   const [date, ...timeParts] = booking.date.split(' at ');
-  const time = timeParts.join(' at ') || date;
+  const time = timeParts.join(' at ') || '';
 
   await notify(pref,
     () => sendEmail(client.email, `🎉 Booking Confirmed — ${booking.reference}`, html),
@@ -287,7 +287,6 @@ export async function notifyClientOrderStatus(
       '1': client.name,
       '2': booking.reference,
       '3': booking.status,
-      '4': s.msg,
     })
   );
 }
