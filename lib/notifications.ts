@@ -1,10 +1,14 @@
 import { Resend } from 'resend';
+import twilio from 'twilio';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 const FROM_EMAIL = 'Sakzee <notifications@sakzee.com>';
-const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
-const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!;
+const FROM_WHATSAPP = 'whatsapp:+233256089599';
 
 // ─── Send Email ────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, html: string) {
@@ -15,39 +19,34 @@ async function sendEmail(to: string, subject: string, html: string) {
   }
 }
 
-// ─── Send WhatsApp via Cloud API ───────────────────────────────
-async function sendWhatsApp(to: string, templateName: string, components: any[]) {
+// ─── Send WhatsApp via Twilio paid ─────────────────────────────
+async function sendWhatsApp(to: string, message: string) {
   try {
-    // Format Ghana numbers: 024... → +23324...
     let formatted = to.replace(/\s/g, '');
-    if (formatted.startsWith('0')) formatted = '233' + formatted.slice(1);
-    if (formatted.startsWith('+')) formatted = formatted.slice(1);
+    if (formatted.startsWith('0')) formatted = '+233' + formatted.slice(1);
+    if (!formatted.startsWith('+')) formatted = '+' + formatted;
 
-    const res = await fetch(
-      `https://graph.facebook.com/v19.0/${WA_PHONE_ID}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${WA_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: formatted,
-          type: 'template',
-          template: {
-            name: templateName,
-            language: { code: 'en' },
-            components,
-          },
-        }),
-      }
-    );
-    const data = await res.json();
-    if (!res.ok) console.error('WhatsApp send error:', JSON.stringify(data));
+    await twilioClient.messages.create({
+      from: FROM_WHATSAPP,
+      to: `whatsapp:${formatted}`,
+      body: message,
+    });
   } catch (e) {
     console.error('WhatsApp send error:', e);
   }
+}
+
+// ─── Dispatch based on preference ─────────────────────────────
+type Pref = 'email' | 'whatsapp' | 'both';
+
+async function notify(
+  pref: Pref = 'both',
+  email: () => Promise<void>,
+  whatsapp: () => Promise<void>
+) {
+  if (pref === 'email') return email();
+  if (pref === 'whatsapp') return whatsapp();
+  return Promise.all([email(), whatsapp()]);
 }
 
 // ─── Email base template ───────────────────────────────────────
@@ -69,47 +68,41 @@ function baseTemplate(content: string) {
     </div>`;
 }
 
-// ─── Helper to build WhatsApp body parameters ─────────────────
-function bodyParams(params: string[]) {
-  return [{
-    type: 'body',
-    parameters: params.map(p => ({ type: 'text', text: p })),
-  }];
-}
-
 // ══════════════════════════════════════════════════════════════
 // NOTIFICATION FUNCTIONS
 // ══════════════════════════════════════════════════════════════
 
 // 1. Vendor approved
 export async function notifyVendorApproved(vendor: {
-  email: string; business_name: string; contact_name: string; phone: string;
+  email: string; business_name: string; contact_name: string;
+  phone: string; notification_preference?: Pref;
 }) {
-  const subject = '✅ Your Sakzee vendor account has been approved!';
+  const pref = vendor.notification_preference || 'both';
+
   const html = baseTemplate(`
     <h2 style="color:#1a2456;margin:0 0 0.75rem;">Welcome to Sakzee, ${vendor.business_name}! 🎉</h2>
     <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your vendor account has been <strong style="color:#15803d;">approved</strong>. You can now log in and start storing inventory and creating orders.</p>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/vendor/login" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">
-        Log In to Your Dashboard →
-      </a>
+      <a href="https://sakzee.com/vendor/login" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Log In to Your Dashboard →</a>
     </div>
-    <p style="color:#6b7280;font-size:0.875rem;line-height:1.7;">Questions? Reply to this email or WhatsApp us on <strong>0256 089 599</strong>.</p>
+    <p style="color:#6b7280;font-size:0.875rem;">Questions? Call or WhatsApp us on <strong>0256 089 599</strong>.</p>
   `);
 
-  await Promise.all([
-    sendEmail(vendor.email, subject, html),
-    sendWhatsApp(vendor.phone, 'vendor_approved',
-      bodyParams([vendor.contact_name, vendor.business_name])
-    ),
-  ]);
+  const wa = `✅ *Sakzee Vendor Approved!*\n\nHi ${vendor.contact_name}, your vendor account for *${vendor.business_name}* has been approved! 🎉\n\nLog in here: https://sakzee.com/vendor/login\n\nQuestions? Call 0256 089 599`;
+
+  await notify(pref,
+    () => sendEmail(vendor.email, '✅ Your Sakzee vendor account has been approved!', html),
+    () => sendWhatsApp(vendor.phone, wa)
+  );
 }
 
 // 2. Vendor suspended
 export async function notifyVendorSuspended(vendor: {
-  email: string; business_name: string; contact_name: string; phone: string; suspension_reason: string;
+  email: string; business_name: string; contact_name: string;
+  phone: string; suspension_reason: string; notification_preference?: Pref;
 }) {
-  const subject = '⚠️ Your Sakzee vendor account has been suspended';
+  const pref = vendor.notification_preference || 'both';
+
   const html = baseTemplate(`
     <h2 style="color:#dc2626;margin:0 0 0.75rem;">Account Suspended</h2>
     <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your vendor account for <strong>${vendor.business_name}</strong> has been suspended.</p>
@@ -117,26 +110,27 @@ export async function notifyVendorSuspended(vendor: {
       <strong style="color:#dc2626;">Reason:</strong>
       <p style="color:#374151;margin:0.5rem 0 0;">${vendor.suspension_reason}</p>
     </div>
-    <p style="color:#374151;line-height:1.7;">To resolve this:<br/><strong>📞 0256 089 599</strong> | <strong>✉️ info@sakzee.com</strong></p>
+    <p style="color:#374151;">To resolve this: <strong>📞 0256 089 599</strong> | <strong>✉️ info@sakzee.com</strong></p>
   `);
 
-  await Promise.all([
-    sendEmail(vendor.email, subject, html),
-    sendWhatsApp(vendor.phone, 'vendor_suspended',
-      bodyParams([vendor.contact_name, vendor.business_name, vendor.suspension_reason])
-    ),
-  ]);
+  const wa = `⚠️ *Sakzee Account Suspended*\n\nHi ${vendor.contact_name}, your vendor account for *${vendor.business_name}* has been suspended.\n\n*Reason:* ${vendor.suspension_reason}\n\nContact us: 0256 089 599`;
+
+  await notify(pref,
+    () => sendEmail(vendor.email, '⚠️ Your Sakzee vendor account has been suspended', html),
+    () => sendWhatsApp(vendor.phone, wa)
+  );
 }
 
 // 3. Inventory checked in
 export async function notifyInventoryCheckedIn(
-  vendor: { email: string; business_name: string; contact_name: string; phone: string },
+  vendor: { email: string; business_name: string; contact_name: string; phone: string; notification_preference?: Pref },
   product: { name: string; quantity: number; space_type: string }
 ) {
-  const subject = `📦 Inventory received: ${product.name}`;
+  const pref = vendor.notification_preference || 'both';
+
   const html = baseTemplate(`
     <h2 style="color:#1a2456;margin:0 0 0.75rem;">Inventory Checked In ✅</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your inventory has been received and verified by the Sakzee warehouse team.</p>
+    <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your inventory has been received and verified by our warehouse team.</p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:1.25rem;margin:1rem 0;">
       <table style="width:100%;font-size:0.875rem;">
         <tr><td style="color:#6b7280;padding:0.3rem 0;">Product</td><td style="color:#1a2456;font-weight:600;text-align:right;">${product.name}</td></tr>
@@ -144,37 +138,34 @@ export async function notifyInventoryCheckedIn(
         <tr><td style="color:#6b7280;padding:0.3rem 0;">Space type</td><td style="color:#1a2456;font-weight:600;text-align:right;">${product.space_type === 'pallet' ? 'Pallet' : 'Shelf'}</td></tr>
       </table>
     </div>
-    <p style="color:#374151;line-height:1.7;">This product is now available in your delivery orders.</p>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/vendor/orders/new" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">
-        Create a Delivery Order →
-      </a>
+      <a href="https://sakzee.com/vendor/orders/new" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">Create a Delivery Order →</a>
     </div>
   `);
 
-  await Promise.all([
-    sendEmail(vendor.email, subject, html),
-    sendWhatsApp(vendor.phone, 'inventory_checked_in',
-      bodyParams([vendor.contact_name, product.name, String(product.quantity)])
-    ),
-  ]);
+  const wa = `📦 *Inventory Received - Sakzee*\n\nHi ${vendor.contact_name}!\n\n• *Product:* ${product.name}\n• *Quantity:* ${product.quantity} units\n• *Space:* ${product.space_type === 'pallet' ? 'Pallet' : 'Shelf'}\n\nCreate orders: https://sakzee.com/vendor/orders/new`;
+
+  await notify(pref,
+    () => sendEmail(vendor.email, `📦 Inventory received: ${product.name}`, html),
+    () => sendWhatsApp(vendor.phone, wa)
+  );
 }
 
-// 4. Vendor order status update
+// 4. Vendor order status
 export async function notifyVendorOrderStatus(
-  vendor: { email: string; contact_name: string; phone: string },
+  vendor: { email: string; contact_name: string; phone: string; notification_preference?: Pref },
   order: { reference: string; status: string; delivery_address: string; recipient_name: string }
 ) {
+  const pref = vendor.notification_preference || 'both';
   const statusMessages: Record<string, { emoji: string; title: string; msg: string }> = {
     Processing: { emoji: '⚙️', title: 'Order Being Processed', msg: 'Your order is being picked and packed by the Sakzee warehouse team.' },
     Packed: { emoji: '📦', title: 'Order Packed', msg: 'Your order has been packed and is ready for dispatch.' },
     Shipped: { emoji: '🚚', title: 'Order Out for Delivery', msg: 'Your order is now out for delivery to the recipient.' },
-    Delivered: { emoji: '✅', title: 'Order Delivered!', msg: 'Your order has been successfully delivered to the recipient.' },
+    Delivered: { emoji: '✅', title: 'Order Delivered!', msg: 'Your order has been successfully delivered.' },
   };
   const s = statusMessages[order.status];
   if (!s) return;
 
-  const subject = `${s.emoji} Order ${order.reference} — ${s.title}`;
   const html = baseTemplate(`
     <h2 style="color:#1a2456;margin:0 0 0.75rem;">${s.emoji} ${s.title}</h2>
     <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, ${s.msg}</p>
@@ -187,64 +178,64 @@ export async function notifyVendorOrderStatus(
       </table>
     </div>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/vendor/orders" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">View All Orders →</a>
+      <a href="https://sakzee.com/vendor/orders" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">View All Orders →</a>
     </div>
   `);
 
-  await Promise.all([
-    sendEmail(vendor.email, subject, html),
-    sendWhatsApp(vendor.phone, 'order_status_update',
-      bodyParams([vendor.contact_name, order.reference, order.status, order.recipient_name, order.delivery_address])
-    ),
-  ]);
+  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${vendor.contact_name}!\n\n${s.msg}\n\n• *Reference:* ${order.reference}\n• *Status:* ${order.status}\n• *Recipient:* ${order.recipient_name}\n• *Address:* ${order.delivery_address}\n\nView: https://sakzee.com/vendor/orders`;
+
+  await notify(pref,
+    () => sendEmail(vendor.email, `${s.emoji} Order ${order.reference} — ${s.title}`, html),
+    () => sendWhatsApp(vendor.phone, wa)
+  );
 }
 
 // 5. Client booking confirmation
 export async function notifyClientBooking(
-  client: { email: string; name: string; phone: string },
+  client: { email: string; name: string; phone: string; notification_preference?: Pref },
   booking: { reference: string; service: string; date: string }
 ) {
-  const subject = `🎉 Request Received — ${booking.reference}`;
+  const pref = client.notification_preference || 'both';
+
   const html = baseTemplate(`
-    <h2 style="color:#1a2456;margin:0 0 0.75rem;">Request Received! 🎉</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${client.name}, your service request has been received. Our team will contact you within 24 hours with a full quote.</p>
+    <h2 style="color:#1a2456;margin:0 0 0.75rem;">Booking Confirmed! 🎉</h2>
+    <p style="color:#374151;line-height:1.7;">Hi ${client.name}, your booking has been confirmed.</p>
     <div style="background:#f8f9ff;border:1px solid #e5e7eb;border-radius:10px;padding:1.25rem;margin:1rem 0;">
       <table style="width:100%;font-size:0.875rem;">
         <tr><td style="color:#6b7280;padding:0.3rem 0;">Reference</td><td style="color:#1a2456;font-weight:700;text-align:right;font-family:monospace;">${booking.reference}</td></tr>
         <tr><td style="color:#6b7280;padding:0.3rem 0;">Service</td><td style="color:#1a2456;font-weight:600;text-align:right;">${booking.service}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Preferred Date</td><td style="color:#1a2456;font-weight:600;text-align:right;">${booking.date}</td></tr>
+        <tr><td style="color:#6b7280;padding:0.3rem 0;">Date</td><td style="color:#1a2456;font-weight:600;text-align:right;">${booking.date}</td></tr>
       </table>
     </div>
-    <p style="color:#374151;line-height:1.7;">Save your reference to track your request.</p>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Track Your Request →</a>
+      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">Track Your Delivery →</a>
     </div>
-    <p style="color:#6b7280;font-size:0.875rem;">Questions? Call <strong>0256 089 599</strong> or WhatsApp us.</p>
+    <p style="color:#6b7280;font-size:0.875rem;">Questions? Call <strong>0256 089 599</strong></p>
   `);
 
-  await Promise.all([
-    sendEmail(client.email, subject, html),
-    sendWhatsApp(client.phone, 'booking_confirmation',
-      bodyParams([client.name, booking.reference, booking.service, booking.date])
-    ),
-  ]);
+  const wa = `🎉 *Booking Confirmed - Sakzee*\n\nHi ${client.name}!\n\n• *Reference:* ${booking.reference}\n• *Service:* ${booking.service}\n• *Date:* ${booking.date}\n\nTrack: https://sakzee.com/track\nQuestions? Call: 0256 089 599`;
+
+  await notify(pref,
+    () => sendEmail(client.email, `🎉 Booking Confirmed — ${booking.reference}`, html),
+    () => sendWhatsApp(client.phone, wa)
+  );
 }
 
-// 6. Client order status update
+// 6. Client order status
 export async function notifyClientOrderStatus(
-  client: { email: string; name: string; phone: string },
+  client: { email: string; name: string; phone: string; notification_preference?: Pref },
   booking: { reference: string; status: string; service: string }
 ) {
+  const pref = client.notification_preference || 'both';
   const statusMessages: Record<string, { emoji: string; title: string; msg: string }> = {
-    Processing: { emoji: '⚙️', title: 'We are processing your order', msg: 'Your order is currently being processed by the Sakzee team.' },
-    Packed: { emoji: '📦', title: 'Your order is packed', msg: 'Your order has been packed and is ready for the next step.' },
-    Shipped: { emoji: '🚚', title: 'Your order is on the way!', msg: 'Your order is out for delivery.' },
-    Delivered: { emoji: '✅', title: 'Order delivered!', msg: 'Your order has been successfully delivered. Thank you for choosing Sakzee!' },
+    Processing: { emoji: '⚙️', title: 'Your delivery is being processed', msg: 'We are preparing your delivery.' },
+    Packed: { emoji: '📦', title: 'Your delivery is packed', msg: 'Your package has been packed and is ready for pickup.' },
+    Shipped: { emoji: '🚚', title: 'Your delivery is on the way!', msg: 'Your package is out for delivery.' },
+    Delivered: { emoji: '✅', title: 'Delivery complete!', msg: 'Your package has been successfully delivered. Thank you for choosing Sakzee!' },
   };
   const s = statusMessages[booking.status];
   if (!s) return;
 
-  const subject = `${s.emoji} ${s.title} — ${booking.reference}`;
   const html = baseTemplate(`
     <h2 style="color:#1a2456;margin:0 0 0.75rem;">${s.emoji} ${s.title}</h2>
     <p style="color:#374151;line-height:1.7;">Hi ${client.name}, ${s.msg}</p>
@@ -256,14 +247,14 @@ export async function notifyClientOrderStatus(
       </table>
     </div>
     <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Track Your Order →</a>
+      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">Track Your Delivery →</a>
     </div>
   `);
 
-  await Promise.all([
-    sendEmail(client.email, subject, html),
-    sendWhatsApp(client.phone, 'client_order_status',
-      bodyParams([client.name, booking.reference, booking.status, booking.service])
-    ),
-  ]);
+  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${client.name}!\n\n${s.msg}\n\n• *Reference:* ${booking.reference}\n• *Status:* ${booking.status}\n\nTrack: https://sakzee.com/track`;
+
+  await notify(pref,
+    () => sendEmail(client.email, `${s.emoji} ${s.title} — ${booking.reference}`, html),
+    () => sendWhatsApp(client.phone, wa)
+  );
 }
