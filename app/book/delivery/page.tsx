@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 
 declare global {
@@ -37,116 +37,120 @@ export default function BookDeliveryPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [reference, setReference] = useState('');
-    const [mapsLoaded, setMapsLoaded] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [mapsReady, setMapsReady] = useState(false);
+
     const pickupRef = useRef<HTMLInputElement>(null);
     const deliveryRef = useRef<HTMLInputElement>(null);
-    const pickupAutocomplete = useRef<any>(null);
-    const deliveryAutocomplete = useRef<any>(null);
+    const pickupAC = useRef<any>(null);
+    const deliveryAC = useRef<any>(null);
 
-    const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
-
+    // Load scripts once
     useEffect(() => {
-        // Load Paystack
-        const ps = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
-        if (!ps) {
+        // Paystack
+        if (!document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]')) {
             const s = document.createElement('script');
             s.src = 'https://js.paystack.co/v1/inline.js';
             s.async = true;
             document.body.appendChild(s);
         }
 
-        // Google Maps loaded via layout.tsx Script tag
-        // Check if already available
-        if (window.google && window.google.maps) {
-            setMapsLoaded(true);
+        // Google Maps — load directly with key
+        const MAPS_KEY = 'AIzaSyBAK6MKw3OJtKMQAgvToW8ZtQVklFCr1i8';
+
+        if (window.google?.maps?.places) {
+            setMapsReady(true);
             return;
         }
 
-        // Set callback for when Maps loads
-        window.initGoogleMaps = () => {
-            setMapsLoaded(true);
-        };
+        window.initGoogleMaps = () => setMapsReady(true);
 
-        // Poll in case script already loaded without callback
-        const interval = setInterval(() => {
-            if (window.google && window.google.maps) {
-                setMapsLoaded(true);
-                clearInterval(interval);
-            }
-        }, 300);
-
-        return () => clearInterval(interval);
+        if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
+            const s = document.createElement('script');
+            s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&callback=initGoogleMaps`;
+            s.async = true;
+            s.defer = true;
+            document.head.appendChild(s);
+        }
     }, []);
 
-    useEffect(() => {
-        if (!mapsLoaded) return;
-        // Pickup autocomplete
-        if (pickupRef.current && !pickupAutocomplete.current) {
-            pickupAutocomplete.current = new window.google.maps.places.Autocomplete(pickupRef.current, {
+    // Attach autocomplete whenever Maps is ready AND we're on step 2
+    const attachAutocomplete = useCallback(() => {
+        if (!mapsReady || !window.google?.maps?.places) return;
+
+        if (pickupRef.current && !pickupAC.current) {
+            pickupAC.current = new window.google.maps.places.Autocomplete(pickupRef.current, {
                 componentRestrictions: { country: 'gh' },
                 fields: ['formatted_address', 'geometry'],
             });
-            pickupAutocomplete.current.addListener('place_changed', () => {
-                const place = pickupAutocomplete.current.getPlace();
-                if (place.formatted_address) {
+            pickupAC.current.addListener('place_changed', () => {
+                const place = pickupAC.current.getPlace();
+                if (place?.formatted_address) {
                     setForm(prev => ({ ...prev, pickup_address: place.formatted_address }));
                 }
             });
         }
-        // Delivery autocomplete
-        if (deliveryRef.current && !deliveryAutocomplete.current) {
-            deliveryAutocomplete.current = new window.google.maps.places.Autocomplete(deliveryRef.current, {
+
+        if (deliveryRef.current && !deliveryAC.current) {
+            deliveryAC.current = new window.google.maps.places.Autocomplete(deliveryRef.current, {
                 componentRestrictions: { country: 'gh' },
                 fields: ['formatted_address', 'geometry'],
             });
-            deliveryAutocomplete.current.addListener('place_changed', () => {
-                const place = deliveryAutocomplete.current.getPlace();
-                if (place.formatted_address) {
+            deliveryAC.current.addListener('place_changed', () => {
+                const place = deliveryAC.current.getPlace();
+                if (place?.formatted_address) {
                     setForm(prev => ({ ...prev, delivery_address: place.formatted_address }));
                 }
             });
         }
-    }, [mapsLoaded, step]);
+    }, [mapsReady]);
+
+    useEffect(() => {
+        if (step === 2) {
+            // Small delay to ensure DOM is rendered
+            setTimeout(attachAutocomplete, 100);
+        }
+    }, [step, mapsReady, attachAutocomplete]);
+
+    // Re-attach if mapsReady fires after step 2
+    useEffect(() => {
+        if (mapsReady && step === 2) {
+            setTimeout(attachAutocomplete, 100);
+        }
+    }, [mapsReady]);
 
     async function calculateDistance() {
-        if (!form.pickup_address || !form.delivery_address) return;
-        if (!window.google) return;
+        if (!form.pickup_address || !form.delivery_address || !window.google) return;
         setCalculatingDistance(true);
         setDistanceKm(null);
-        setDistanceText('');
-        try {
-            const service = new window.google.maps.DistanceMatrixService();
-            service.getDistanceMatrix({
-                origins: [form.pickup_address],
-                destinations: [form.delivery_address],
-                travelMode: window.google.maps.TravelMode.DRIVING,
-                unitSystem: window.google.maps.UnitSystem.METRIC,
-            }, (res: any, status: string) => {
-                if (status === 'OK' && res.rows[0].elements[0].status === 'OK') {
-                    const el = res.rows[0].elements[0];
-                    const km = Math.ceil(el.distance.value / 1000);
-                    setDistanceKm(km);
-                    setDistanceText(el.distance.text);
-                } else {
-                    setDistanceKm(30); // fallback
-                    setDistanceText('~30 km (estimated)');
-                }
-                setCalculatingDistance(false);
-            });
-        } catch {
-            setDistanceKm(30);
-            setDistanceText('~30 km (estimated)');
+
+        const service = new window.google.maps.DistanceMatrixService();
+        service.getDistanceMatrix({
+            origins: [form.pickup_address],
+            destinations: [form.delivery_address],
+            travelMode: window.google.maps.TravelMode.DRIVING,
+            unitSystem: window.google.maps.UnitSystem.METRIC,
+        }, (res: any, status: string) => {
+            if (status === 'OK' && res.rows[0]?.elements[0]?.status === 'OK') {
+                const el = res.rows[0].elements[0];
+                const km = Math.ceil(el.distance.value / 1000);
+                setDistanceKm(km);
+                setDistanceText(el.distance.text);
+            } else {
+                // Fallback estimate
+                setDistanceKm(20);
+                setDistanceText('~20 km (estimated)');
+            }
             setCalculatingDistance(false);
-        }
+        });
     }
 
     useEffect(() => {
-        if (form.pickup_address && form.delivery_address && mapsLoaded) {
-            const timeout = setTimeout(calculateDistance, 800);
-            return () => clearTimeout(timeout);
+        if (form.pickup_address && form.delivery_address && mapsReady) {
+            const t = setTimeout(calculateDistance, 800);
+            return () => clearTimeout(t);
         }
-    }, [form.pickup_address, form.delivery_address, mapsLoaded]);
+    }, [form.pickup_address, form.delivery_address, mapsReady]);
 
     const weight = Number(form.weight_kg) || 0;
     const km = distanceKm || 0;
@@ -164,9 +168,6 @@ export default function BookDeliveryPage() {
         if (step === 2) {
             if (!form.pickup_address || !form.delivery_address || !form.pickup_date || !form.pickup_time) {
                 setError('Please fill in all delivery details.'); return;
-            }
-            if (!distanceKm && mapsLoaded) {
-                setError('Please wait for distance to be calculated.'); return;
             }
         }
         setStep(step + 1);
@@ -252,10 +253,9 @@ export default function BookDeliveryPage() {
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
             <style>{`
-        @media (max-width: 640px) {
-          .del-desktop-nav { display: none !important; }
-          .del-hamburger { display: flex !important; }
-        }
+        @media (max-width: 640px) { .del-desktop-nav { display: none !important; } .del-hamburger { display: flex !important; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .pac-container { z-index: 9999 !important; }
       `}</style>
 
             <nav style={{ background: '#1a2456', padding: '0.9rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
@@ -287,7 +287,7 @@ export default function BookDeliveryPage() {
                     <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Pay now · Instant confirmation · Same-day pickup in Accra</p>
                 </div>
 
-                {/* Step indicators */}
+                {/* Steps */}
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
                     {['Your Details', 'Delivery Info', 'Pay & Confirm'].map((label, i) => (
                         <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -316,16 +316,10 @@ export default function BookDeliveryPage() {
                             <div><label style={lbl}>Full Name *</label><input style={inp} name="name" value={form.name} onChange={handleChange} placeholder="Your full name" /></div>
                             <div><label style={lbl}>Email Address *</label><input style={inp} name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" /></div>
                             <div><label style={lbl}>Phone Number *</label><input style={inp} name="phone" value={form.phone} onChange={handleChange} placeholder="0XX XXX XXXX" /></div>
-
-                            {/* Notification preference */}
                             <div>
                                 <label style={{ ...lbl, marginBottom: '0.65rem' }}>Notification Preference</label>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-                                    {[
-                                        { value: 'email', icon: '✉️', label: 'Email' },
-                                        { value: 'whatsapp', icon: '💬', label: 'WhatsApp' },
-                                        { value: 'both', icon: '🔔', label: 'Both' },
-                                    ].map(opt => (
+                                    {[{ value: 'email', icon: '✉️', label: 'Email' }, { value: 'whatsapp', icon: '💬', label: 'WhatsApp' }, { value: 'both', icon: '🔔', label: 'Both' }].map(opt => (
                                         <label key={opt.value} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.75rem 0.5rem', border: `2px solid ${form.notification_preference === opt.value ? '#1a2456' : '#e2e8f0'}`, borderRadius: '10px', cursor: 'pointer', background: form.notification_preference === opt.value ? '#f0f3ff' : 'white', gap: '0.3rem' }}>
                                             <input type="radio" name="notification_preference" value={opt.value} checked={form.notification_preference === opt.value} onChange={handleChange} style={{ display: 'none' }} />
                                             <span style={{ fontSize: '1.25rem' }}>{opt.icon}</span>
@@ -342,15 +336,32 @@ export default function BookDeliveryPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
                                 <label style={lbl}>Pickup Address *</label>
-                                <input ref={pickupRef} style={inp} name="pickup_address" value={form.pickup_address} onChange={handleChange} placeholder={mapsLoaded ? "Start typing pickup address..." : "Enter pickup address"} />
-                                {mapsLoaded && <p style={{ color: '#9ca3af', fontSize: '0.72rem', marginTop: '0.3rem' }}>💡 Start typing — Google Maps will suggest addresses in Ghana</p>}
+                                <input
+                                    ref={pickupRef}
+                                    style={inp}
+                                    name="pickup_address"
+                                    value={form.pickup_address}
+                                    onChange={handleChange}
+                                    placeholder="Start typing pickup address..."
+                                    autoComplete="off"
+                                />
+                                <p style={{ color: '#9ca3af', fontSize: '0.72rem', marginTop: '0.3rem' }}>
+                                    {mapsReady ? '💡 Google Maps suggestions enabled' : '📍 Type your pickup address'}
+                                </p>
                             </div>
                             <div>
                                 <label style={lbl}>Delivery Address *</label>
-                                <input ref={deliveryRef} style={inp} name="delivery_address" value={form.delivery_address} onChange={handleChange} placeholder={mapsLoaded ? "Start typing delivery address..." : "Enter delivery address"} />
+                                <input
+                                    ref={deliveryRef}
+                                    style={inp}
+                                    name="delivery_address"
+                                    value={form.delivery_address}
+                                    onChange={handleChange}
+                                    placeholder="Start typing delivery address..."
+                                    autoComplete="off"
+                                />
                             </div>
 
-                            {/* Distance result */}
                             {calculatingDistance && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <div style={{ width: '14px', height: '14px', border: '2px solid #1a2456', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -370,7 +381,6 @@ export default function BookDeliveryPage() {
                             <div><label style={lbl}>Package Weight (kg)</label><input style={inp} name="weight_kg" type="number" min="0" step="0.1" value={form.weight_kg} onChange={handleChange} placeholder="Estimated weight" /></div>
                             <div><label style={lbl}>Package Description (optional)</label><textarea style={{ ...inp, minHeight: '70px', resize: 'vertical' as const }} name="package_description" value={form.package_description} onChange={handleChange} placeholder="e.g. 2 boxes of clothing, 1 laptop..." /></div>
 
-                            {/* Fee breakdown */}
                             {distanceKm && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
                                     <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Delivery fee breakdown</div>
@@ -403,15 +413,10 @@ export default function BookDeliveryPage() {
                             <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
                                 <h3 style={{ color: '#1a2456', fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.9rem' }}>Booking Summary</h3>
                                 {([
-                                    ['Name', form.name],
-                                    ['Phone', form.phone],
-                                    ['Email', form.email],
-                                    ['Pickup From', form.pickup_address],
-                                    ['Deliver To', form.delivery_address],
-                                    ['Distance', distanceText],
-                                    ['Pickup Date', form.pickup_date],
-                                    ['Pickup Time', form.pickup_time],
-                                    ['Weight', `${weight}kg`],
+                                    ['Name', form.name], ['Phone', form.phone], ['Email', form.email],
+                                    ['Pickup From', form.pickup_address], ['Deliver To', form.delivery_address],
+                                    ['Distance', distanceText], ['Pickup Date', form.pickup_date],
+                                    ['Pickup Time', form.pickup_time], ['Weight', `${weight}kg`],
                                     ['Notifications', form.notification_preference === 'both' ? 'Email & WhatsApp' : form.notification_preference === 'email' ? 'Email' : 'WhatsApp'],
                                     form.package_description ? ['Package', form.package_description] : null,
                                 ] as [string, string][]).filter(Boolean).map(([k, v]) => (
@@ -445,8 +450,6 @@ export default function BookDeliveryPage() {
                     Need help? Call <a href="tel:+233256089599" style={{ color: '#f97316', fontWeight: 600, textDecoration: 'none' }}>0256 089 599</a> or <a href="https://wa.me/233256089599" target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', fontWeight: 600, textDecoration: 'none' }}>WhatsApp us</a>
                 </p>
             </div>
-
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }
