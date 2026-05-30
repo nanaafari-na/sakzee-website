@@ -31,6 +31,9 @@ export async function POST(req: NextRequest) {
                 pickup_time: body.pickup_time || null,
                 booking_type: body.booking_type || 'consultation',
                 delivery_fee: body.delivery_fee || 0,
+                distance_km: body.distance_km || 0,
+                region: body.region || null,
+                notification_preference: body.notification_preference || 'both',
                 status: body.status || 'Received',
                 paid_at: body.paid_at || new Date().toISOString(),
             }),
@@ -41,19 +44,21 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: err }, { status: 500 });
         }
 
-        // Send notification
+        // Send notification with preference
+        const pref = body.notification_preference || 'both';
+
         if (body.booking_type === 'delivery') {
             await notifyClientBooking(
-                { email: body.email, name: body.name, phone: body.phone },
+                { email: body.email, name: body.name, phone: body.phone, notification_preference: pref },
                 {
                     reference: body.reference,
-                    service: `Delivery — ${body.pickup_address} → ${body.delivery_address || body.region}`,
+                    service: `Delivery — ${body.pickup_address} → ${body.delivery_address}`,
                     date: `${body.date} at ${body.pickup_time}`,
                 }
             );
         } else {
             await notifyClientBooking(
-                { email: body.email, name: body.name, phone: body.phone },
+                { email: body.email, name: body.name, phone: body.phone, notification_preference: pref },
                 { reference: body.reference, service: body.service, date: body.date }
             );
         }

@@ -9,32 +9,14 @@ const headers = {
     'Content-Type': 'application/json',
 };
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
-        // Get all orders with vendor info
-        const ordersRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`,
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/orders?select=*,vendors(business_name,contact_name,email,phone,notification_preference)&order=created_at.desc`,
             { headers }
         );
-        const orders = await ordersRes.json();
-        if (!orders || orders.length === 0) return NextResponse.json([]);
-
-        // Get all vendors to enrich orders
-        const vendorsRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/vendors?select=id,business_name,contact_name,email,phone`,
-            { headers }
-        );
-        const vendors = await vendorsRes.json();
-        const vendorMap: Record<string, any> = {};
-        (vendors || []).forEach((v: any) => { vendorMap[v.id] = v; });
-
-        // Enrich orders with vendor info
-        const enriched = orders.map((o: any) => ({
-            ...o,
-            vendor: vendorMap[o.vendor_id] || null,
-        }));
-
-        return NextResponse.json(enriched);
+        const data = await res.json();
+        return NextResponse.json(data);
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
@@ -45,10 +27,9 @@ export async function PATCH(req: NextRequest) {
         const id = req.nextUrl.searchParams.get('id');
         if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-        const body = await req.json();
-        const { status } = body;
+        const { status } = await req.json();
 
-        // Get order details
+        // Get order + vendor details before updating
         const orderRes = await fetch(
             `${SUPABASE_URL}/rest/v1/orders?id=eq.${id}&select=*`,
             { headers }
@@ -64,18 +45,29 @@ export async function PATCH(req: NextRequest) {
         });
         if (!res.ok) throw new Error(await res.text());
 
-        // Notify vendor
-        if (order && status) {
+        // Notify vendor with their preference
+        if (order) {
             const vendorRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/vendors?id=eq.${order.vendor_id}&select=*`,
                 { headers }
             );
             const vendors = await vendorRes.json();
             const vendor = vendors?.[0];
+
             if (vendor) {
                 await notifyVendorOrderStatus(
-                    { email: vendor.email, contact_name: vendor.contact_name, phone: vendor.phone },
-                    { reference: order.reference, status, delivery_address: order.delivery_address, recipient_name: order.recipient_name }
+                    {
+                        email: vendor.email,
+                        contact_name: vendor.contact_name,
+                        phone: vendor.phone,
+                        notification_preference: vendor.notification_preference || 'both',
+                    },
+                    {
+                        reference: order.reference,
+                        status,
+                        delivery_address: order.delivery_address,
+                        recipient_name: order.recipient_name,
+                    }
                 );
             }
         }

@@ -5,13 +5,16 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
 export async function POST(req: NextRequest) {
     try {
-        const { email, password, business_name, contact_name, phone, address } = await req.json();
+        const {
+            email, password, business_name, contact_name,
+            phone, address, notification_preference,
+        } = await req.json();
 
         if (!SUPABASE_URL || !SERVICE_KEY) {
-            return NextResponse.json({ error: 'Server configuration error. Please contact support.' }, { status: 500 });
+            return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
         }
 
-        // 1. Create Supabase Auth user via admin API
+        // 1. Create Supabase Auth user
         const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
             method: 'POST',
             headers: {
@@ -19,21 +22,16 @@ export async function POST(req: NextRequest) {
                 'Authorization': `Bearer ${SERVICE_KEY}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                email,
-                password,
-                email_confirm: true,
-            }),
+            body: JSON.stringify({ email, password, email_confirm: true }),
         });
 
         const authData = await authRes.json();
-
         if (!authRes.ok) {
             const errMsg = authData.msg || authData.message || authData.error_description || authData.error || JSON.stringify(authData);
             return NextResponse.json({ error: errMsg }, { status: 400 });
         }
 
-        // 2. Save vendor profile
+        // 2. Save vendor profile with notification preference
         const vendorRes = await fetch(`${SUPABASE_URL}/rest/v1/vendors`, {
             method: 'POST',
             headers: {
@@ -47,8 +45,9 @@ export async function POST(req: NextRequest) {
                 business_name,
                 contact_name,
                 phone,
-                address,
+                address: address || '',
                 status: 'pending',
+                notification_preference: notification_preference || 'both',
             }),
         });
 

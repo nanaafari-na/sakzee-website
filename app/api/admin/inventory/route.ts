@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest) {
 
         const body = await req.json();
 
-        // Get product + vendor details before updating
+        // Get product details before updating
         const productRes = await fetch(
             `${SUPABASE_URL}/rest/v1/products?id=eq.${id}&select=*`,
             { headers }
@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest) {
         });
         if (!res.ok) throw new Error(await res.text());
 
-        // If this is a check-in confirmation, notify the vendor
+        // If check-in confirmation, notify vendor with their preference
         if (body.checkin_status === 'checked_in' && product) {
             const vendorRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/vendors?id=eq.${product.vendor_id}&select=*`,
@@ -61,6 +61,7 @@ export async function PATCH(req: NextRequest) {
                         business_name: vendor.business_name,
                         contact_name: vendor.contact_name,
                         phone: vendor.phone,
+                        notification_preference: vendor.notification_preference || 'both',
                     },
                     {
                         name: product.name,

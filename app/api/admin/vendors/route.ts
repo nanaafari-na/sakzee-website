@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest) {
         const body = await req.json();
         const { status, suspension_reason } = body;
 
-        // Get vendor details before updating
+        // Get vendor details first (including notification_preference)
         const vendorRes = await fetch(
             `${SUPABASE_URL}/rest/v1/vendors?id=eq.${id}&select=*`,
             { headers }
@@ -46,14 +46,16 @@ export async function PATCH(req: NextRequest) {
         });
         if (!res.ok) throw new Error(await res.text());
 
-        // Send notification based on new status
+        // Send notification respecting preference
         if (vendor) {
+            const pref = vendor.notification_preference || 'both';
             if (status === 'active') {
                 await notifyVendorApproved({
                     email: vendor.email,
                     business_name: vendor.business_name,
                     contact_name: vendor.contact_name,
                     phone: vendor.phone,
+                    notification_preference: pref,
                 });
             } else if (status === 'suspended') {
                 await notifyVendorSuspended({
@@ -62,6 +64,7 @@ export async function PATCH(req: NextRequest) {
                     contact_name: vendor.contact_name,
                     phone: vendor.phone,
                     suspension_reason: suspension_reason || 'Policy violation',
+                    notification_preference: pref,
                 });
             }
         }

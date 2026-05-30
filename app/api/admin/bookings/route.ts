@@ -26,6 +26,7 @@ export async function PATCH(req: NextRequest) {
     try {
         const { reference, status } = await req.json();
 
+        // Update status
         const res = await fetch(
             `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(reference)}`,
             {
@@ -34,7 +35,7 @@ export async function PATCH(req: NextRequest) {
                 body: JSON.stringify({ status }),
             }
         );
-        if (!res.ok) throw new Error('Failed to update');
+        if (!res.ok) throw new Error('Failed to update booking status');
 
         // Get booking to notify client
         const bookingRes = await fetch(
@@ -42,15 +43,18 @@ export async function PATCH(req: NextRequest) {
             { headers }
         );
         const bookings = await bookingRes.json();
+
         if (bookings?.[0]) {
             const b = bookings[0];
+            const pref = b.notification_preference || 'both';
+
             await notifyClientOrderStatus(
-                { email: b.email, name: b.name, phone: b.phone },
+                { email: b.email, name: b.name, phone: b.phone, notification_preference: pref },
                 {
                     reference: b.reference,
                     status,
                     service: b.booking_type === 'delivery'
-                        ? `Delivery — ${b.pickup_address} → ${b.delivery_address || b.notes}`
+                        ? `Delivery — ${b.pickup_address} → ${b.delivery_address}`
                         : b.service,
                 }
             );
