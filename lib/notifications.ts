@@ -10,6 +10,16 @@ const twilioClient = twilio(
 const FROM_EMAIL = 'Sakzee <notifications@sakzee.com>';
 const FROM_WHATSAPP = 'whatsapp:+233256089599';
 
+// Twilio Content Template SIDs
+const TEMPLATES = {
+  vendor_approved: 'HX9bdad5f482e034cbcb1de7422136d759',
+  vendor_suspended: 'HX10c07067a28c77f772a425bccdf73c1f',
+  inventory_checked_in: 'HXb394bf3d53082e7001d2e0d3baa57c48',
+  order_status_update: 'HXf0fbfbf5a51e9ec7fce0f15eda3320a8',
+  booking_confirmation: 'HX870d45087f6b06d057584c8414d9eb68',
+  order_status_client: 'HX15f2a97da69c47bdbf3a8054414a0717',
+};
+
 // ─── Send Email ────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, html: string) {
   try {
@@ -19,8 +29,12 @@ async function sendEmail(to: string, subject: string, html: string) {
   }
 }
 
-// ─── Send WhatsApp via Twilio paid ─────────────────────────────
-async function sendWhatsApp(to: string, message: string) {
+// ─── Send WhatsApp via Twilio Content Template ─────────────────
+async function sendWhatsApp(
+  to: string,
+  templateSid: string,
+  variables: Record<string, string>
+) {
   try {
     let formatted = to.replace(/\s/g, '');
     if (formatted.startsWith('0')) formatted = '+233' + formatted.slice(1);
@@ -29,7 +43,8 @@ async function sendWhatsApp(to: string, message: string) {
     await twilioClient.messages.create({
       from: FROM_WHATSAPP,
       to: `whatsapp:${formatted}`,
-      body: message,
+      contentSid: templateSid,
+      contentVariables: JSON.stringify(variables),
     });
   } catch (e) {
     console.error('WhatsApp send error:', e);
@@ -88,11 +103,11 @@ export async function notifyVendorApproved(vendor: {
     <p style="color:#6b7280;font-size:0.875rem;">Questions? Call or WhatsApp us on <strong>0256 089 599</strong>.</p>
   `);
 
-  const wa = `✅ *Sakzee Vendor Approved!*\n\nHi ${vendor.contact_name}, your vendor account for *${vendor.business_name}* has been approved! 🎉\n\nLog in here: https://sakzee.com/vendor/login\n\nQuestions? Call 0256 089 599`;
-
   await notify(pref,
     () => sendEmail(vendor.email, '✅ Your Sakzee vendor account has been approved!', html),
-    () => sendWhatsApp(vendor.phone, wa)
+    () => sendWhatsApp(vendor.phone, TEMPLATES.vendor_approved, {
+      '1': vendor.business_name,
+    })
   );
 }
 
@@ -113,11 +128,13 @@ export async function notifyVendorSuspended(vendor: {
     <p style="color:#374151;">To resolve this: <strong>📞 0256 089 599</strong> | <strong>✉️ info@sakzee.com</strong></p>
   `);
 
-  const wa = `⚠️ *Sakzee Account Suspended*\n\nHi ${vendor.contact_name}, your vendor account for *${vendor.business_name}* has been suspended.\n\n*Reason:* ${vendor.suspension_reason}\n\nContact us: 0256 089 599`;
-
   await notify(pref,
     () => sendEmail(vendor.email, '⚠️ Your Sakzee vendor account has been suspended', html),
-    () => sendWhatsApp(vendor.phone, wa)
+    () => sendWhatsApp(vendor.phone, TEMPLATES.vendor_suspended, {
+      '1': vendor.contact_name,
+      '2': vendor.business_name,
+      '3': vendor.suspension_reason,
+    })
   );
 }
 
@@ -143,11 +160,13 @@ export async function notifyInventoryCheckedIn(
     </div>
   `);
 
-  const wa = `📦 *Inventory Received - Sakzee*\n\nHi ${vendor.contact_name}!\n\n• *Product:* ${product.name}\n• *Quantity:* ${product.quantity} units\n• *Space:* ${product.space_type === 'pallet' ? 'Pallet' : 'Shelf'}\n\nCreate orders: https://sakzee.com/vendor/orders/new`;
-
   await notify(pref,
     () => sendEmail(vendor.email, `📦 Inventory received: ${product.name}`, html),
-    () => sendWhatsApp(vendor.phone, wa)
+    () => sendWhatsApp(vendor.phone, TEMPLATES.inventory_checked_in, {
+      '1': vendor.contact_name,
+      '2': product.name,
+      '3': String(product.quantity),
+    })
   );
 }
 
@@ -182,11 +201,15 @@ export async function notifyVendorOrderStatus(
     </div>
   `);
 
-  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${vendor.contact_name}!\n\n${s.msg}\n\n• *Reference:* ${order.reference}\n• *Status:* ${order.status}\n• *Recipient:* ${order.recipient_name}\n• *Address:* ${order.delivery_address}\n\nView: https://sakzee.com/vendor/orders`;
-
   await notify(pref,
     () => sendEmail(vendor.email, `${s.emoji} Order ${order.reference} — ${s.title}`, html),
-    () => sendWhatsApp(vendor.phone, wa)
+    () => sendWhatsApp(vendor.phone, TEMPLATES.order_status_update, {
+      '1': vendor.contact_name,
+      '2': order.reference,
+      '3': order.status,
+      '4': order.recipient_name,
+      '5': order.delivery_address,
+    })
   );
 }
 
@@ -213,11 +236,18 @@ export async function notifyClientBooking(
     <p style="color:#6b7280;font-size:0.875rem;">Questions? Call <strong>0256 089 599</strong></p>
   `);
 
-  const wa = `🎉 *Booking Confirmed - Sakzee*\n\nHi ${client.name}!\n\n• *Reference:* ${booking.reference}\n• *Service:* ${booking.service}\n• *Date:* ${booking.date}\n\nTrack: https://sakzee.com/track\nQuestions? Call: 0256 089 599`;
+  // Split date and time for template variables
+  const [date, ...timeParts] = booking.date.split(' at ');
+  const time = timeParts.join(' at ') || date;
 
   await notify(pref,
     () => sendEmail(client.email, `🎉 Booking Confirmed — ${booking.reference}`, html),
-    () => sendWhatsApp(client.phone, wa)
+    () => sendWhatsApp(client.phone, TEMPLATES.booking_confirmation, {
+      '1': client.name,
+      '2': booking.reference,
+      '3': date,
+      '4': time,
+    })
   );
 }
 
@@ -251,10 +281,13 @@ export async function notifyClientOrderStatus(
     </div>
   `);
 
-  const wa = `${s.emoji} *${s.title} - Sakzee*\n\nHi ${client.name}!\n\n${s.msg}\n\n• *Reference:* ${booking.reference}\n• *Status:* ${booking.status}\n\nTrack: https://sakzee.com/track`;
-
   await notify(pref,
     () => sendEmail(client.email, `${s.emoji} ${s.title} — ${booking.reference}`, html),
-    () => sendWhatsApp(client.phone, wa)
+    () => sendWhatsApp(client.phone, TEMPLATES.order_status_client, {
+      '1': client.name,
+      '2': booking.reference,
+      '3': booking.status,
+      '4': s.msg,
+    })
   );
 }
