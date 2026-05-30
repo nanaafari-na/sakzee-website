@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'Sakzee — Moving Dreams, Delivering Growth',
   description: "Ghana's leading fulfillment and logistics partner. Warehousing, order fulfillment, shipping and delivery across Ghana.",
   keywords: 'logistics Ghana, warehousing Ghana, delivery Ghana, fulfillment Ghana, Sakzee',
+  authors: [{ name: 'Sakzee Company Limited' }],
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -28,6 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body style={{ margin: 0, padding: 0, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
         {children}
+        <Script
+          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&libraries=places&callback=initGoogleMaps`}
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );
