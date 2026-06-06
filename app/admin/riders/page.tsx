@@ -101,6 +101,7 @@ export default function AdminRidersPage() {
                 body: JSON.stringify({ booking_id: bookingReference, rider_id: riderId }),
             });
             const data = await res.json();
+            console.log('Assign response:', res.status, data);
             if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
             setSuccess(`Delivery ${bookingReference} assigned successfully!`);
             await loadData();
