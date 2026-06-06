@@ -34,6 +34,8 @@ export default function AdminRidersPage() {
     const [assigning, setAssigning] = useState<string | null>(null);
     const [form, setForm] = useState({ name: '', phone: '', pin: '', vehicle_type: 'motorcycle', license_plate: '', email: '' });
     const [saving, setSaving] = useState(false);
+    const [selectedRiders, setSelectedRiders] = useState<Record<string, string>>({});
+    const [assignedRefs, setAssignedRefs] = useState<string[]>([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -101,11 +103,12 @@ export default function AdminRidersPage() {
                 body: JSON.stringify({ booking_id: bookingReference, rider_id: riderId }),
             });
             const data = await res.json();
-            console.log('Assign response:', res.status, data);
             if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
-            setSuccess(`Delivery ${bookingReference} assigned successfully!`);
-            await loadData();
-            setTimeout(() => setSuccess(''), 3000);
+            // Mark as assigned locally without reloading
+            setAssignedRefs(prev => [...prev, bookingReference]);
+            const riderName = riders.find(r => r.id === riderId)?.name || 'Rider';
+            setSuccess(`✅ ${bookingReference} assigned to ${riderName}`);
+            setTimeout(() => setSuccess(''), 4000);
         } catch (e: any) {
             setError(`Assignment failed: ${e.message}`);
         }
@@ -195,7 +198,7 @@ export default function AdminRidersPage() {
                             <div style={{ background: 'white', borderRadius: '14px', padding: '3rem', textAlign: 'center' }}>
                                 <p style={{ color: '#9ca3af' }}>No unassigned deliveries right now</p>
                             </div>
-                        ) : (
+                        ) :
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {bookings.map(booking => (
                                     <div key={booking.reference} style={{ background: 'white', borderRadius: '14px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #efefef' }}>
@@ -212,37 +215,38 @@ export default function AdminRidersPage() {
                                         </div>
                                         <div>
                                             <label style={lbl}>Assign to Rider</label>
-                                            <div style={{ display: 'flex', gap: '0.65rem' }}>
-                                                <select
-                                                    id={`rider-select-${booking.reference}`}
-                                                    style={{ ...inp, flex: 1 }}
-                                                    defaultValue=""
-                                                >
-                                                    <option value="" disabled>Select a rider</option>
-                                                    {riders.filter(r => r.status === 'active').map(r => (
-                                                        <option key={r.id} value={r.id}>{r.name} — {r.phone}</option>
-                                                    ))}
-                                                </select>
-                                                <button
-                                                    disabled={assigning === booking.reference}
-                                                    onClick={() => {
-                                                        const select = document.getElementById(`rider-select-${booking.reference}`) as HTMLSelectElement;
-                                                        const riderId = select?.value;
-                                                        if (!riderId) { setError('Please select a rider first.'); return; }
-                                                        setError('');
-                                                        assignRider(booking.reference, riderId);
-                                                    }}
-                                                    style={{ background: assigning === booking.reference ? '#ccc' : '#f97316', color: 'white', border: 'none', padding: '0.7rem 1.25rem', borderRadius: '8px', fontWeight: 700, cursor: assigning === booking.reference ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.875rem', whiteSpace: 'nowrap' as const }}
-                                                >
-                                                    {assigning === booking.reference ? 'Assigning...' : 'Assign'}
-                                                </button>
-                                            </div>
+                                            {assignedRefs.includes(booking.reference) ? (
+                                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem 1rem', color: '#15803d', fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                                    Assigned successfully
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'flex', gap: '0.65rem' }}>
+                                                    <select
+                                                        value={selectedRiders[booking.reference] || ''}
+                                                        onChange={e => setSelectedRiders(prev => ({ ...prev, [booking.reference]: e.target.value }))}
+                                                        style={{ ...inp, flex: 1 }}
+                                                    >
+                                                        <option value="" disabled>Select a rider</option>
+                                                        {riders.filter(r => r.status === 'active').map(r => (
+                                                            <option key={r.id} value={r.id}>{r.name} — {r.phone}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        disabled={assigning === booking.reference}
+                                                        onClick={() => assignRider(booking.reference, selectedRiders[booking.reference] || '')}
+                                                        style={{ background: assigning === booking.reference ? '#ccc' : '#f97316', color: 'white', border: 'none', padding: '0.7rem 1.25rem', borderRadius: '8px', fontWeight: 700, cursor: assigning === booking.reference ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.875rem', whiteSpace: 'nowrap' as const }}
+                                                    >
+                                                        {assigning === booking.reference ? 'Assigning...' : 'Assign'}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        )
-                )}
+                )
+                }
             </div>
 
             {/* Add Rider Modal */}
