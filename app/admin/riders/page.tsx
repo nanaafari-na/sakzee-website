@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 type Rider = {
     id: string;
@@ -37,11 +36,8 @@ export default function AdminRidersPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const router = useRouter();
 
     useEffect(() => {
-        const pass = localStorage.getItem('admin_authenticated');
-        if (!pass) { router.push('/admin'); return; }
         loadData();
     }, []);
 
