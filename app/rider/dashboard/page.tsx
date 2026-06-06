@@ -279,12 +279,10 @@ export default function RiderDashboard() {
                                         >
                                             🗺️ Navigate
                                         </a>
-                                        <button
-                                            onClick={() => !trackingActive ? startTracking() : stopTracking()}
-                                            style={{ flex: 1, background: trackingActive ? '#dc2626' : '#22c55e', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-                                        >
-                                            {trackingActive ? '⏹ Stop Tracking' : '📍 Start Tracking'}
-                                        </button>
+                                        <div style={{ flex: 1, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.85rem', fontSize: '0.78rem', color: '#15803d', fontWeight: 600, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                                            <div style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
+                                            {trackingActive ? 'Live tracking on' : 'Starting...'}
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
