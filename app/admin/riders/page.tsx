@@ -131,7 +131,7 @@ export default function AdminRidersPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
                         <h1 style={{ color: '#1a2456', fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Rider Management</h1>
-                        <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: '0.25rem' }}>{riders.length} riders · {bookings.length} unassigned deliveries</p>
+                        <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: '0.25rem' }}>{riders.length} riders · {Math.max(0, bookings.length - assignedRefs.length)} unassigned deliveries</p>
                     </div>
                     <button onClick={() => setShowAddRider(true)} style={{ background: '#1a2456', color: 'white', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '9px', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
@@ -198,7 +198,7 @@ export default function AdminRidersPage() {
                             <div style={{ background: 'white', borderRadius: '14px', padding: '3rem', textAlign: 'center' }}>
                                 <p style={{ color: '#9ca3af' }}>No unassigned deliveries right now</p>
                             </div>
-                        ) :
+                        ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {bookings.map(booking => (
                                     <div key={booking.reference} style={{ background: 'white', borderRadius: '14px', padding: '1.25rem 1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', border: '1px solid #efefef' }}>
@@ -245,8 +245,8 @@ export default function AdminRidersPage() {
                                     </div>
                                 ))}
                             </div>
-                )
-                }
+                        )
+                )}
             </div>
 
             {/* Add Rider Modal */}
