@@ -8,7 +8,7 @@ const twilioClient = twilio(
 );
 
 const FROM_EMAIL = 'Sakzee <notifications@sakzee.com>';
-const FROM_WHATSAPP = 'whatsapp:+233256089599';
+const FROM_WHATSAPP = 'whatsapp:+233256089605';
 
 // Twilio Content Template SIDs
 const TEMPLATES = {
