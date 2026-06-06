@@ -91,19 +91,22 @@ export default function AdminRidersPage() {
     }
 
     async function assignRider(bookingReference: string, riderId: string) {
+        if (!riderId) { setError('Please select a rider first.'); return; }
         setAssigning(bookingReference);
+        setError('');
         try {
             const res = await fetch('/api/admin/assign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ booking_id: bookingReference, rider_id: riderId }),
             });
-            if (!res.ok) throw new Error('Failed to assign');
-            setSuccess(`Delivery assigned successfully!`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `Server error: ${res.status}`);
+            setSuccess(`Delivery ${bookingReference} assigned successfully!`);
             await loadData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (e: any) {
-            setError(e instanceof Error ? e.message : 'Failed to assign');
+            setError(`Assignment failed: ${e.message}`);
         }
         setAssigning(null);
     }
@@ -223,12 +226,14 @@ export default function AdminRidersPage() {
                                                     disabled={assigning === booking.reference}
                                                     onClick={() => {
                                                         const select = document.getElementById(`rider-select-${booking.reference}`) as HTMLSelectElement;
-                                                        if (!select.value) { setError('Please select a rider first.'); return; }
-                                                        assignRider(booking.reference, select.value);
+                                                        const riderId = select?.value;
+                                                        if (!riderId) { setError('Please select a rider first.'); return; }
+                                                        setError('');
+                                                        assignRider(booking.reference, riderId);
                                                     }}
                                                     style={{ background: assigning === booking.reference ? '#ccc' : '#f97316', color: 'white', border: 'none', padding: '0.7rem 1.25rem', borderRadius: '8px', fontWeight: 700, cursor: assigning === booking.reference ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.875rem', whiteSpace: 'nowrap' as const }}
                                                 >
-                                                    {assigning === booking.reference ? '...' : 'Assign'}
+                                                    {assigning === booking.reference ? 'Assigning...' : 'Assign'}
                                                 </button>
                                             </div>
                                         </div>
