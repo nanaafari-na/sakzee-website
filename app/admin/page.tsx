@@ -53,8 +53,15 @@ export default function AdminPage() {
 
     const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'sakzee2025';
 
+    useEffect(() => {
+        if (localStorage.getItem('admin_authenticated') === '1') {
+            setAuthed(true);
+            loadAll();
+        }
+    }, []);
+
     function handleLogin() {
-        if (password === ADMIN_PASSWORD) { setAuthed(true); loadAll(); }
+        if (password === ADMIN_PASSWORD) { setAuthed(true); localStorage.setItem('admin_authenticated', '1'); loadAll(); }
         else setPwError('Incorrect password.');
     }
 
