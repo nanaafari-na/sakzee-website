@@ -188,7 +188,9 @@ export default function AdminPage() {
                     <NavTab id="vendors" label="Vendors" count={pendingVendors.length} />
                     <NavTab id="inventory" label="Inventory" count={pendingCheckins.length} />
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                    <Link href="/admin/riders" style={{ background: '#f97316', color: 'white', padding: '0.45rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>🏍️ Riders</Link>
+                    <Link href="/admin/reports" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.45rem 1rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.85rem' }}>Reports</Link>
                     <button onClick={loadAll} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.45rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'inherit' }}>Refresh</button>
                     <Link href="/" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '0.85rem' }}>← Website</Link>
                 </div>
