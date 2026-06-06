@@ -8,11 +8,11 @@ const twilioClient = twilio(
 );
 
 const FROM_EMAIL = 'Sakzee <notifications@sakzee.com>';
-const FROM_WHATSAPP = 'whatsapp:+233256089605';
+const FROM_WHATSAPP = 'whatsapp:+233256089599';
 
 // Twilio Content Template SIDs
 const TEMPLATES = {
-  vendor_approved: 'HX9bdad5f482e034cbcb1de7422136d759',
+  vendor_approved: 'HX5aba3e20c6f230cceaa528001583b039',
   vendor_suspended: 'HX10c07067a28c77f772a425bccdf73c1f',
   inventory_checked_in: 'HXb394bf3d53082e7001d2e0d3baa57c48',
   order_status_update: 'HXf0fbfbf5a51e9ec7fce0f15eda3320a8',
