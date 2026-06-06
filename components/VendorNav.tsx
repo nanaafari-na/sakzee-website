@@ -18,6 +18,7 @@ export default function VendorNav() {
         { href: '/vendor/inventory', label: 'Inventory' },
         { href: '/vendor/orders', label: 'Orders' },
         { href: '/vendor/billing', label: 'Billing' },
+        { href: '/vendor/settings', label: 'Settings' },
     ];
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');

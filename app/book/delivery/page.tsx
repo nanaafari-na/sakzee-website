@@ -318,12 +318,16 @@ export default function BookDeliveryPage() {
                             <div><label style={lbl}>Phone Number *</label><input style={inp} name="phone" value={form.phone} onChange={handleChange} placeholder="0XX XXX XXXX" /></div>
                             <div>
                                 <label style={{ ...lbl, marginBottom: '0.65rem' }}>Notification Preference</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-                                    {[{ value: 'email', icon: '✉️', label: 'Email' }, { value: 'whatsapp', icon: '💬', label: 'WhatsApp' }, { value: 'both', icon: '🔔', label: 'Both' }].map(opt => (
-                                        <label key={opt.value} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.75rem 0.5rem', border: `2px solid ${form.notification_preference === opt.value ? '#1a2456' : '#e2e8f0'}`, borderRadius: '10px', cursor: 'pointer', background: form.notification_preference === opt.value ? '#f0f3ff' : 'white', gap: '0.3rem' }}>
-                                            <input type="radio" name="notification_preference" value={opt.value} checked={form.notification_preference === opt.value} onChange={handleChange} style={{ display: 'none' }} />
-                                            <span style={{ fontSize: '1.25rem' }}>{opt.icon}</span>
-                                            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: form.notification_preference === opt.value ? '#1a2456' : '#6b7280' }}>{opt.label}</span>
+                                <div style={{ display: 'flex', gap: '0.65rem' }}>
+                                    {[
+                                        { value: 'email', icon: '✉️', label: 'Email' },
+                                        { value: 'whatsapp', icon: '💬', label: 'WhatsApp' },
+                                        { value: 'both', icon: '🔔', label: 'Both (Recommended)' },
+                                    ].map(opt => (
+                                        <label key={opt.value} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', padding: '0.75rem 0.5rem', border: `2px solid ${form.notification_preference === opt.value ? '#1a2456' : '#e2e8f0'}`, borderRadius: '10px', cursor: 'pointer', background: form.notification_preference === opt.value ? '#f0f3ff' : 'white', textAlign: 'center' }}>
+                                            <input type="radio" name="notification_preference" value={opt.value} checked={form.notification_preference === opt.value} onChange={handleChange} style={{ width: '16px', height: '16px', accentColor: '#1a2456', cursor: 'pointer' }} />
+                                            <span style={{ fontSize: '1.15rem' }}>{opt.icon}</span>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: form.notification_preference === opt.value ? '#1a2456' : '#6b7280', lineHeight: 1.3 }}>{opt.label}</span>
                                         </label>
                                     ))}
                                 </div>
