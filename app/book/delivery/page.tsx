@@ -10,14 +10,15 @@ declare global {
     }
 }
 
-const BASE_FEE = 35;
-const PER_KM = 2;
-const WEIGHT_THRESHOLD = 5;
-const PER_KG_OVER = 3;
+const BASE_FEE = 25;
+const INCLUDED_KM = 10;
+const PER_KM_OVER = 1.5;
+const WEIGHT_SURCHARGE = 10;
 
-function calcFee(km: number, weight: number) {
-    const distFee = BASE_FEE + km * PER_KM;
-    const weightFee = weight > WEIGHT_THRESHOLD ? (weight - WEIGHT_THRESHOLD) * PER_KG_OVER : 0;
+function calcFee(km: number, isOverweight: boolean) {
+    const extraKm = Math.max(0, km - INCLUDED_KM);
+    const distFee = BASE_FEE + extraKm * PER_KM_OVER;
+    const weightFee = isOverweight ? WEIGHT_SURCHARGE : 0;
     return Math.round(distFee + weightFee);
 }
 
@@ -26,10 +27,12 @@ export default function BookDeliveryPage() {
     const [form, setForm] = useState({
         name: '', email: '', phone: '',
         pickup_address: '', delivery_address: '',
-        weight_kg: '', package_description: '',
+        weight_band: '', package_description: '',
         pickup_date: '', pickup_time: '',
         notification_preference: 'both',
     });
+    const [pickupLatLng, setPickupLatLng] = useState<{ lat: number; lng: number } | null>(null);
+    const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
     const [distanceKm, setDistanceKm] = useState<number | null>(null);
     const [distanceText, setDistanceText] = useState('');
     const [calculatingDistance, setCalculatingDistance] = useState(false);
@@ -88,6 +91,11 @@ export default function BookDeliveryPage() {
                 if (place?.formatted_address) {
                     setForm(prev => ({ ...prev, pickup_address: place.formatted_address }));
                 }
+                if (place?.geometry?.location) {
+                    setPickupLatLng({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
+                } else {
+                    setPickupLatLng(null);
+                }
             });
         }
 
@@ -100,6 +108,11 @@ export default function BookDeliveryPage() {
                 const place = deliveryAC.current.getPlace();
                 if (place?.formatted_address) {
                     setForm(prev => ({ ...prev, delivery_address: place.formatted_address }));
+                }
+                if (place?.geometry?.location) {
+                    setDeliveryLatLng({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
+                } else {
+                    setDeliveryLatLng(null);
                 }
             });
         }
@@ -124,16 +137,26 @@ export default function BookDeliveryPage() {
         setCalculatingDistance(true);
         setDistanceKm(null);
 
+        // Prefer exact coordinates from the selected autocomplete suggestion —
+        // re-geocoding the address text can resolve to a different, less precise
+        // point and was the cause of inflated/inconsistent distances.
+        const origin = pickupLatLng
+            ? new window.google.maps.LatLng(pickupLatLng.lat, pickupLatLng.lng)
+            : form.pickup_address;
+        const destination = deliveryLatLng
+            ? new window.google.maps.LatLng(deliveryLatLng.lat, deliveryLatLng.lng)
+            : form.delivery_address;
+
         const service = new window.google.maps.DistanceMatrixService();
         service.getDistanceMatrix({
-            origins: [form.pickup_address],
-            destinations: [form.delivery_address],
+            origins: [origin],
+            destinations: [destination],
             travelMode: window.google.maps.TravelMode.DRIVING,
             unitSystem: window.google.maps.UnitSystem.METRIC,
         }, (res: any, status: string) => {
             if (status === 'OK' && res.rows[0]?.elements[0]?.status === 'OK') {
                 const el = res.rows[0].elements[0];
-                const km = Math.ceil(el.distance.value / 1000);
+                const km = Math.round(el.distance.value / 1000);
                 setDistanceKm(km);
                 setDistanceText(el.distance.text);
             } else {
@@ -152,12 +175,15 @@ export default function BookDeliveryPage() {
         }
     }, [form.pickup_address, form.delivery_address, mapsReady]);
 
-    const weight = Number(form.weight_kg) || 0;
+    const isOverweight = form.weight_band === 'over';
     const km = distanceKm || 0;
-    const deliveryFee = km > 0 ? calcFee(km, weight) : 0;
+    const deliveryFee = km > 0 ? calcFee(km, isOverweight) : 0;
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        if (name === 'pickup_address') setPickupLatLng(null);
+        if (name === 'delivery_address') setDeliveryLatLng(null);
+        setForm(prev => ({ ...prev, [name]: value }));
     }
 
     function nextStep() {
@@ -166,7 +192,7 @@ export default function BookDeliveryPage() {
             setError('Please fill in all required fields.'); return;
         }
         if (step === 2) {
-            if (!form.pickup_address || !form.delivery_address || !form.pickup_date || !form.pickup_time) {
+            if (!form.pickup_address || !form.delivery_address || !form.pickup_date || !form.pickup_time || !form.weight_band) {
                 setError('Please fill in all delivery details.'); return;
             }
         }
@@ -382,24 +408,33 @@ export default function BookDeliveryPage() {
                                 <div><label style={lbl}>Pickup Date *</label><input style={inp} name="pickup_date" type="date" value={form.pickup_date} onChange={handleChange} min={new Date().toISOString().split('T')[0]} /></div>
                                 <div><label style={lbl}>Pickup Time *</label><input style={inp} name="pickup_time" type="time" value={form.pickup_time} onChange={handleChange} /></div>
                             </div>
-                            <div><label style={lbl}>Package Weight (kg)</label><input style={inp} name="weight_kg" type="number" min="0" step="0.1" value={form.weight_kg} onChange={handleChange} placeholder="Estimated weight" /></div>
+                            <div>
+                                <label style={lbl}>Package Weight *</label>
+                                <select style={{ ...inp, appearance: 'none' as const }} name="weight_band" value={form.weight_band} onChange={handleChange}>
+                                    <option value="">Select weight range</option>
+                                    <option value="under">Up to 5kg — No extra charge</option>
+                                    <option value="over">{`Over 5kg — +GHS ${WEIGHT_SURCHARGE}`}</option>
+                                </select>
+                            </div>
                             <div><label style={lbl}>Package Description (optional)</label><textarea style={{ ...inp, minHeight: '70px', resize: 'vertical' as const }} name="package_description" value={form.package_description} onChange={handleChange} placeholder="e.g. 2 boxes of clothing, 1 laptop..." /></div>
 
                             {distanceKm && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
                                     <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Delivery fee breakdown</div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                        <span style={{ color: '#374151' }}>Base fee</span>
+                                        <span style={{ color: '#374151' }}>Base fee (covers first {INCLUDED_KM}km)</span>
                                         <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE}</span>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                        <span style={{ color: '#374151' }}>Distance ({distanceText} × GHS {PER_KM})</span>
-                                        <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {km * PER_KM}</span>
-                                    </div>
-                                    {weight > WEIGHT_THRESHOLD && (
+                                    {km > INCLUDED_KM && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                            <span style={{ color: '#374151' }}>Weight surcharge</span>
-                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((weight - WEIGHT_THRESHOLD) * PER_KG_OVER)}</span>
+                                            <span style={{ color: '#374151' }}>Extra distance ({km - INCLUDED_KM}km × GHS {PER_KM_OVER})</span>
+                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((km - INCLUDED_KM) * PER_KM_OVER)}</span>
+                                        </div>
+                                    )}
+                                    {isOverweight && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                                            <span style={{ color: '#374151' }}>Weight surcharge (over 5kg)</span>
+                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {WEIGHT_SURCHARGE}</span>
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 800, borderTop: '1px solid #e5e7eb', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
@@ -420,7 +455,7 @@ export default function BookDeliveryPage() {
                                     ['Name', form.name], ['Phone', form.phone], ['Email', form.email],
                                     ['Pickup From', form.pickup_address], ['Deliver To', form.delivery_address],
                                     ['Distance', distanceText], ['Pickup Date', form.pickup_date],
-                                    ['Pickup Time', form.pickup_time], ['Weight', `${weight}kg`],
+                                    ['Pickup Time', form.pickup_time], ['Weight', isOverweight ? 'Over 5kg' : 'Up to 5kg'],
                                     ['Notifications', form.notification_preference === 'both' ? 'Email & WhatsApp' : form.notification_preference === 'email' ? 'Email' : 'WhatsApp'],
                                     form.package_description ? ['Package', form.package_description] : null,
                                 ] as [string, string][]).filter(Boolean).map(([k, v]) => (

@@ -1,45 +1,58 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import VendorNav from '@/components/VendorNav';
 
-declare global { interface Window { PaystackPop: any; } }
+declare global {
+    interface Window {
+        PaystackPop: any;
+        google: any;
+        initGoogleMaps: () => void;
+    }
+}
 
 type Product = { id: string; name: string; sku: string; quantity: number; space_type: string; };
 
-const REGIONS = [
-    { label: 'Accra Central', base_km: 5 },
-    { label: 'Greater Accra', base_km: 20 },
-    { label: 'Ashanti Region', base_km: 250 },
-    { label: 'Western Region', base_km: 290 },
-    { label: 'Eastern Region', base_km: 110 },
-    { label: 'Central Region', base_km: 150 },
-    { label: 'Northern Region', base_km: 600 },
-    { label: 'Other', base_km: 200 },
+// Fixed pickup point for every vendor order — Sakzee's Oyarifa warehouse.
+// Used as the Distance Matrix origin so delivery fee reflects real road distance.
+const WAREHOUSE_ADDRESS = 'Ubuntu Court Estate, Oyarifa, Accra, Ghana';
+
+const BASE_FEE = 25;
+const INCLUDED_KM = 10;
+const PER_KM_OVER = 1.5;
+const WEIGHT_SURCHARGE = 10;
+
+const WEIGHT_OPTIONS = [
+    { value: 'under', label: 'Up to 5kg — No extra charge' },
+    { value: 'over', label: `Over 5kg — +GHS ${WEIGHT_SURCHARGE}` },
 ];
 
-const BASE_FEE = 20;
-const PER_KM = 2;
-const WEIGHT_THRESHOLD = 5;
-const PER_KG_OVER = 3;
-
-function calcDeliveryFee(km: number, weight: number) {
-    const distFee = BASE_FEE + km * PER_KM;
-    const weightFee = weight > WEIGHT_THRESHOLD ? (weight - WEIGHT_THRESHOLD) * PER_KG_OVER : 0;
+function calcDeliveryFee(km: number, isOverweight: boolean) {
+    const extraKm = Math.max(0, km - INCLUDED_KM);
+    const distFee = BASE_FEE + extraKm * PER_KM_OVER;
+    const weightFee = isOverweight ? WEIGHT_SURCHARGE : 0;
     return Math.round(distFee + weightFee);
 }
 
 export default function NewOrderPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedItems, setSelectedItems] = useState<{ product_id: string; product_name: string; quantity: number }[]>([]);
-    const [form, setForm] = useState({ recipient_name: '', recipient_phone: '', delivery_address: '', region: '', weight_kg: '' });
+    const [form, setForm] = useState({ recipient_name: '', recipient_phone: '', delivery_address: '', region: '', weight_band: '' });
+    const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
+    const [distanceKm, setDistanceKm] = useState<number | null>(null);
+    const [distanceText, setDistanceText] = useState('');
+    const [calculatingDistance, setCalculatingDistance] = useState(false);
+    const [mapsReady, setMapsReady] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [step, setStep] = useState(1);
     const [success, setSuccess] = useState(false);
     const [orderRef, setOrderRef] = useState('');
     const router = useRouter();
+
+    const deliveryRef = useRef<HTMLInputElement>(null);
+    const deliveryAC = useRef<any>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('vendor_token');
@@ -57,6 +70,88 @@ export default function NewOrderPage() {
         document.body.appendChild(script);
         return () => { if (document.body.contains(script)) document.body.removeChild(script); };
     }, []);
+
+    // Google Maps — load directly with key (same pattern as the public booking page)
+    useEffect(() => {
+        const MAPS_KEY = 'AIzaSyBAK6MKw3OJtKMQAgvToW8ZtQVklFCr1i8';
+
+        if (window.google?.maps?.places) {
+            setMapsReady(true);
+            return;
+        }
+
+        window.initGoogleMaps = () => setMapsReady(true);
+
+        if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
+            const s = document.createElement('script');
+            s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&callback=initGoogleMaps`;
+            s.async = true;
+            s.defer = true;
+            document.head.appendChild(s);
+        }
+    }, []);
+
+    const attachAutocomplete = useCallback(() => {
+        if (!mapsReady || !window.google?.maps?.places || !deliveryRef.current || deliveryAC.current) return;
+
+        deliveryAC.current = new window.google.maps.places.Autocomplete(deliveryRef.current, {
+            componentRestrictions: { country: 'gh' },
+            fields: ['formatted_address', 'geometry', 'address_components'],
+        });
+        deliveryAC.current.addListener('place_changed', () => {
+            const place = deliveryAC.current.getPlace();
+            const regionComponent = place?.address_components?.find((c: any) => c.types.includes('administrative_area_level_1'));
+            setForm(prev => ({
+                ...prev,
+                delivery_address: place?.formatted_address || prev.delivery_address,
+                region: regionComponent?.long_name || prev.region,
+            }));
+            setDeliveryLatLng(place?.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
+        });
+    }, [mapsReady]);
+
+    useEffect(() => {
+        if (step === 2) setTimeout(attachAutocomplete, 100);
+    }, [step, mapsReady, attachAutocomplete]);
+
+    async function calculateDistance() {
+        if (!form.delivery_address || !window.google) return;
+        setCalculatingDistance(true);
+        setDistanceKm(null);
+
+        // Prefer the exact coordinates from the selected suggestion over re-geocoding
+        // the address text, which can resolve to a different, less precise point.
+        const destination = deliveryLatLng
+            ? new window.google.maps.LatLng(deliveryLatLng.lat, deliveryLatLng.lng)
+            : form.delivery_address;
+
+        const service = new window.google.maps.DistanceMatrixService();
+        service.getDistanceMatrix({
+            origins: [WAREHOUSE_ADDRESS],
+            destinations: [destination],
+            travelMode: window.google.maps.TravelMode.DRIVING,
+            unitSystem: window.google.maps.UnitSystem.METRIC,
+        }, (res: any, status: string) => {
+            if (status === 'OK' && res.rows[0]?.elements[0]?.status === 'OK') {
+                const el = res.rows[0].elements[0];
+                const km = Math.round(el.distance.value / 1000);
+                setDistanceKm(km);
+                setDistanceText(el.distance.text);
+            } else {
+                // Fallback estimate
+                setDistanceKm(20);
+                setDistanceText('~20 km (estimated)');
+            }
+            setCalculatingDistance(false);
+        });
+    }
+
+    useEffect(() => {
+        if (form.delivery_address && mapsReady) {
+            const t = setTimeout(calculateDistance, 800);
+            return () => clearTimeout(t);
+        }
+    }, [form.delivery_address, mapsReady]);
 
     async function loadProducts(id: string, token: string) {
         try {
@@ -79,14 +174,14 @@ export default function NewOrderPage() {
         setSelectedItems(prev => prev.map(i => i.product_id === product_id ? { ...i, quantity: clamped } : i));
     }
 
-    const selectedRegion = REGIONS.find(r => r.label === form.region);
-    const km = selectedRegion?.base_km || 0;
-    const weight = Number(form.weight_kg) || 0;
-    const deliveryFee = calcDeliveryFee(km, weight);
+    const km = distanceKm || 0;
+    const isOverweight = form.weight_band === 'over';
+    const weightKgValue = isOverweight ? 6 : 0; // sentinel: >5 = over, displayed as a band everywhere, not a literal weight
+    const deliveryFee = km > 0 ? calcDeliveryFee(km, isOverweight) : 0;
 
     function nextStep() {
         if (step === 1 && selectedItems.length === 0) { setError('Select at least one product.'); return; }
-        if (step === 2 && (!form.recipient_name || !form.recipient_phone || !form.delivery_address || !form.region)) { setError('Please fill in all delivery details.'); return; }
+        if (step === 2 && (!form.recipient_name || !form.recipient_phone || !form.delivery_address || !form.weight_band)) { setError('Please fill in all delivery details.'); return; }
         setError(''); setStep(step + 1);
     }
 
@@ -114,7 +209,7 @@ export default function NewOrderPage() {
             const res = await fetch('/api/vendor/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ reference: ref, vendor_id, items: selectedItems, recipient_name: form.recipient_name, recipient_phone: form.recipient_phone, delivery_address: form.delivery_address, region: form.region, distance_km: km, weight_kg: weight, delivery_fee: deliveryFee, status: 'Pending', payment_status: 'paid', paid_at: new Date().toISOString() }),
+                body: JSON.stringify({ reference: ref, vendor_id, items: selectedItems, recipient_name: form.recipient_name, recipient_phone: form.recipient_phone, delivery_address: form.delivery_address, region: form.region, distance_km: km, weight_kg: weightKgValue, delivery_fee: deliveryFee, status: 'Pending', payment_status: 'paid', paid_at: new Date().toISOString() }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
@@ -155,6 +250,10 @@ export default function NewOrderPage() {
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
+            <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .pac-container { z-index: 9999 !important; }
+      `}</style>
             <VendorNav />
 
             <div style={{ maxWidth: '580px', margin: '3rem auto', padding: '0 1rem' }}>
@@ -224,26 +323,58 @@ export default function NewOrderPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div><label style={lbl}>Recipient Name *</label><input style={inp} value={form.recipient_name} onChange={e => setForm({ ...form, recipient_name: e.target.value })} placeholder="Who receives the delivery?" /></div>
                             <div><label style={lbl}>Recipient Phone *</label><input style={inp} value={form.recipient_phone} onChange={e => setForm({ ...form, recipient_phone: e.target.value })} placeholder="0XX XXX XXXX" /></div>
-                            <div><label style={lbl}>Delivery Address *</label><input style={inp} value={form.delivery_address} onChange={e => setForm({ ...form, delivery_address: e.target.value })} placeholder="Full delivery address" /></div>
                             <div>
-                                <label style={lbl}>Region *</label>
-                                <select style={{ ...inp, appearance: 'none' as const }} value={form.region} onChange={e => setForm({ ...form, region: e.target.value })}>
-                                    <option value="">Select a region</option>
-                                    {REGIONS.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
+                                <label style={lbl}>Delivery Address *</label>
+                                <input
+                                    ref={deliveryRef}
+                                    style={inp}
+                                    value={form.delivery_address}
+                                    onChange={e => { setDeliveryLatLng(null); setForm({ ...form, delivery_address: e.target.value }); }}
+                                    placeholder="Start typing delivery address..."
+                                    autoComplete="off"
+                                />
+                                <p style={{ color: '#9ca3af', fontSize: '0.72rem', marginTop: '0.3rem' }}>
+                                    {mapsReady ? '💡 Google Maps suggestions enabled' : '📍 Type the delivery address'}
+                                </p>
+                            </div>
+
+                            {calculatingDistance && (
+                                <div style={{ background: '#f8f9ff', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <div style={{ width: '14px', height: '14px', border: '2px solid #1a2456', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                    Calculating distance from our Oyarifa warehouse...
+                                </div>
+                            )}
+                            {distanceKm && !calculatingDistance && (
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    📍 Distance from warehouse: <strong>{distanceText}</strong>
+                                    {form.region && <span style={{ marginLeft: 'auto', color: '#15803d' }}>{form.region}</span>}
+                                </div>
+                            )}
+
+                            <div>
+                                <label style={lbl}>Total Weight *</label>
+                                <select style={{ ...inp, appearance: 'none' as const }} value={form.weight_band} onChange={e => setForm({ ...form, weight_band: e.target.value })}>
+                                    <option value="">Select weight range</option>
+                                    {WEIGHT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
                             </div>
-                            <div><label style={lbl}>Total Weight (kg)</label><input style={inp} type="number" min="0" step="0.1" value={form.weight_kg} onChange={e => setForm({ ...form, weight_kg: e.target.value })} placeholder="Estimated weight in kg" /></div>
-                            {form.region && (
+                            {distanceKm && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
                                     <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Delivery fee estimate</div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                        <span style={{ color: '#374151' }}>Base fee + distance ({km}km)</span>
-                                        <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE + km * PER_KM}</span>
+                                        <span style={{ color: '#374151' }}>Base fee (covers first {INCLUDED_KM}km)</span>
+                                        <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE}</span>
                                     </div>
-                                    {weight > WEIGHT_THRESHOLD && (
+                                    {km > INCLUDED_KM && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                            <span style={{ color: '#374151' }}>Weight surcharge</span>
-                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((weight - WEIGHT_THRESHOLD) * PER_KG_OVER)}</span>
+                                            <span style={{ color: '#374151' }}>Extra distance ({km - INCLUDED_KM}km × GHS {PER_KM_OVER})</span>
+                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((km - INCLUDED_KM) * PER_KM_OVER)}</span>
+                                        </div>
+                                    )}
+                                    {isOverweight && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                                            <span style={{ color: '#374151' }}>Weight surcharge (over 5kg)</span>
+                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {WEIGHT_SURCHARGE}</span>
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: 700, borderTop: '1px solid #e5e7eb', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
@@ -269,7 +400,7 @@ export default function NewOrderPage() {
                                         </div>
                                     ))}
                                 </div>
-                                {([['Recipient', form.recipient_name], ['Phone', form.recipient_phone], ['Address', form.delivery_address], ['Region', form.region], ['Weight', `${weight}kg`]] as [string, string][]).map(([k, v]) => (
+                                {([['Recipient', form.recipient_name], ['Phone', form.recipient_phone], ['Address', form.delivery_address], ['Region', form.region], ['Weight', isOverweight ? 'Over 5kg' : 'Up to 5kg']] as [string, string][]).map(([k, v]) => (
                                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0', borderTop: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
                                         <span style={{ color: '#6b7280' }}>{k}</span>
                                         <span style={{ color: '#1a2456', fontWeight: 500 }}>{v}</span>

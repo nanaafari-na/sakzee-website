@@ -153,7 +153,7 @@ export default function VendorOrdersPage() {
                                     <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                                         <div><div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.15rem' }}>Recipient</div><div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>{order.recipient_name}</div></div>
                                         <div><div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.15rem' }}>Region</div><div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>{order.region}</div></div>
-                                        <div><div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.15rem' }}>Weight</div><div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>{order.weight_kg}kg</div></div>
+                                        <div><div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.15rem' }}>Weight</div><div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>{order.weight_kg > 5 ? 'Over 5kg' : 'Up to 5kg'}</div></div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
                                         <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.15rem' }}>Delivery Fee</div>
@@ -197,7 +197,7 @@ export default function VendorOrdersPage() {
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1.25rem' }}>
-                            {([['Recipient', selected.recipient_name], ['Phone', selected.recipient_phone], ['Address', selected.delivery_address], ['Region', selected.region], ['Distance', `${selected.distance_km} km`], ['Weight', `${selected.weight_kg} kg`], ['Delivery Fee', `GHS ${selected.delivery_fee}`], ['Payment', selected.payment_status === 'paid' ? '✅ Paid' : '❌ Unpaid']] as [string, string][]).map(([k, v]) => (
+                            {([['Recipient', selected.recipient_name], ['Phone', selected.recipient_phone], ['Address', selected.delivery_address], ['Region', selected.region], ['Distance', `${selected.distance_km} km`], ['Weight', selected.weight_kg > 5 ? 'Over 5kg' : 'Up to 5kg'], ['Delivery Fee', `GHS ${selected.delivery_fee}`], ['Payment', selected.payment_status === 'paid' ? '✅ Paid' : '❌ Unpaid']] as [string, string][]).map(([k, v]) => (
                                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '0.875rem' }}>
                                     <span style={{ color: '#6b7280' }}>{k}</span>
                                     <span style={{ color: '#1a2456', fontWeight: 500, maxWidth: '260px', textAlign: 'right' }}>{v}</span>

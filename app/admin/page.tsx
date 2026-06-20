@@ -409,7 +409,7 @@ export default function AdminPage() {
                                 ['Address', selectedOrder.delivery_address],
                                 ['Region', selectedOrder.region],
                                 ['Distance', `${selectedOrder.distance_km} km`],
-                                ['Weight', `${selectedOrder.weight_kg} kg`],
+                                ['Weight', selectedOrder.weight_kg > 5 ? 'Over 5kg' : 'Up to 5kg'],
                                 ['Delivery Fee', `GHS ${selectedOrder.delivery_fee}`],
                                 ['Payment', selectedOrder.payment_status === 'paid' ? '✅ Paid' : '❌ Unpaid'],
                             ] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
