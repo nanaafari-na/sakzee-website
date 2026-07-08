@@ -267,8 +267,12 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1.2rem' }}>
-            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.76rem' }}>© 2025 Sakzee Company Limited. All rights reserved.</p>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.76rem', margin: 0 }}>© 2026 Sakzee Company Limited. All rights reserved.</p>
+            <div style={{ display: 'flex', gap: '1.25rem' }}>
+              <Link href="/terms" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: '0.76rem' }}>Terms of Service</Link>
+              <Link href="/privacy" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: '0.76rem' }}>Privacy Policy</Link>
+            </div>
           </div>
         </div>
       </footer>
