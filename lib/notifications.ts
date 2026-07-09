@@ -1,16 +1,13 @@
-import { Resend } from 'resend';
 import twilio from 'twilio';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
-const FROM_EMAIL = 'Sakzee <notifications@sakzee.com>';
 const FROM_WHATSAPP = 'whatsapp:+233256089605';
+const FROM_SMS = process.env.TWILIO_SMS_FROM || '';
 
-// Twilio Content Template SIDs
 const TEMPLATES = {
   vendor_approved: 'HX5aba3e20c6f230cceaa528001583b039',
   vendor_suspended: 'HX10c07067a28c77f772a425bccdf73c1f',
@@ -20,273 +17,184 @@ const TEMPLATES = {
   order_status_client: 'HX15f2a97da69c47bdbf3a8054414a0717',
 };
 
-// ─── Send Email ────────────────────────────────────────────────
-async function sendEmail(to: string, subject: string, html: string) {
-  try {
-    await resend.emails.send({ from: FROM_EMAIL, to, subject, html });
-  } catch (e) {
-    console.error('Email send error:', e);
-  }
+type Pref = 'whatsapp' | 'sms' | 'both';
+
+function formatGhana(phone: string): string {
+  let n = phone.replace(/\s/g, '');
+  if (n.startsWith('0')) n = '+233' + n.slice(1);
+  if (!n.startsWith('+')) n = '+' + n;
+  return n;
 }
 
-// ─── Send WhatsApp via Twilio Content Template ─────────────────
-async function sendWhatsApp(
-  to: string,
-  templateSid: string,
-  variables: Record<string, string>
-) {
+async function sendWhatsApp(to: string, templateSid: string, variables: Record<string, string>) {
   try {
-    let formatted = to.replace(/\s/g, '');
-    if (formatted.startsWith('0')) formatted = '+233' + formatted.slice(1);
-    if (!formatted.startsWith('+')) formatted = '+' + formatted;
-
     await twilioClient.messages.create({
       from: FROM_WHATSAPP,
-      to: `whatsapp:${formatted}`,
+      to: `whatsapp:${formatGhana(to)}`,
       contentSid: templateSid,
       contentVariables: JSON.stringify(variables),
     });
-  } catch (e) {
-    console.error('WhatsApp send error:', e);
+  } catch (e) { console.error('WhatsApp error:', e); }
+}
+
+async function sendSMS(to: string, message: string) {
+  try {
+    if (!FROM_SMS) { console.warn('TWILIO_SMS_FROM not set'); return; }
+    await twilioClient.messages.create({
+      from: FROM_SMS,
+      to: formatGhana(to),
+      body: message,
+    });
+  } catch (e) { console.error('SMS error:', e); }
+}
+
+async function notify(
+  phone: string, pref: Pref = 'both',
+  waTpl: string, waVars: Record<string, string>,
+  smsText: string
+) {
+  const wa = () => sendWhatsApp(phone, waTpl, waVars);
+  const sms = () => sendSMS(phone, smsText);
+  if (pref === 'whatsapp') return wa();
+  if (pref === 'sms') return sms();
+  return Promise.all([wa(), sms()]);
+}
+
+export async function notifyVendorApproved(vendor: {
+  phone: string; business_name: string; contact_name: string;
+  notification_preference?: Pref;
+}) {
+  await notify(
+    vendor.phone, vendor.notification_preference || 'both',
+    TEMPLATES.vendor_approved, { '1': vendor.business_name },
+    `Sakzee: Hi ${vendor.contact_name}, your vendor account for ${vendor.business_name} has been approved! Log in at sakzee.com/vendor/login - Call 0256 089 599`
+  );
+}
+
+export async function notifyVendorSuspended(vendor: {
+  phone: string; business_name: string; contact_name: string;
+  suspension_reason: string; notification_preference?: Pref;
+}) {
+  await notify(
+    vendor.phone, vendor.notification_preference || 'both',
+    TEMPLATES.vendor_suspended, { '1': vendor.business_name, '2': vendor.suspension_reason },
+    `Sakzee: Hi ${vendor.contact_name}, your account for ${vendor.business_name} has been suspended. Reason: ${vendor.suspension_reason}. Call 0256 089 599`
+  );
+}
+
+export async function notifyInventoryCheckedIn(
+  vendor: { phone: string; contact_name: string; notification_preference?: Pref },
+  product: { name: string; quantity: number; space_type: string }
+) {
+  await notify(
+    vendor.phone, vendor.notification_preference || 'both',
+    TEMPLATES.inventory_checked_in, { '1': vendor.contact_name, '2': product.name, '3': String(product.quantity) },
+    `Sakzee: Hi ${vendor.contact_name}, inventory received! ${product.name} x${product.quantity} units. Create orders: sakzee.com/vendor/orders/new`
+  );
+}
+
+export async function notifyVendorOrderStatus(
+  vendor: { phone: string; contact_name: string; notification_preference?: Pref },
+  order: { reference: string; status: string; delivery_address: string; recipient_name: string }
+) {
+  await notify(
+    vendor.phone, vendor.notification_preference || 'both',
+    TEMPLATES.order_status_update, { '1': vendor.contact_name, '2': order.reference, '3': order.status, '4': order.recipient_name },
+    `Sakzee: Hi ${vendor.contact_name}, order ${order.reference} is now ${order.status}. Recipient: ${order.recipient_name}. View: sakzee.com/vendor/orders`
+  );
+}
+
+export async function notifyDeliveryBooked(booking: {
+  reference: string;
+  booker_name: string; booker_phone: string;
+  recipient_name: string; recipient_phone: string;
+  pickup_address: string; delivery_address: string;
+  pickup_date: string; pickup_time: string;
+  delivery_fee: number; paying_party: string;
+  notification_preference: Pref;
+  same_person: boolean;
+}) {
+  const pref = booking.notification_preference;
+  const payingName = booking.paying_party === 'recipient' ? booking.recipient_name : booking.booker_name;
+
+  await notify(
+    booking.booker_phone, pref,
+    TEMPLATES.booking_confirmation,
+    { '1': booking.booker_name, '2': booking.reference, '3': booking.pickup_date, '4': booking.pickup_time },
+    `Sakzee: Hi ${booking.booker_name}, delivery booked! Ref: ${booking.reference}. Pickup: ${booking.pickup_date} at ${booking.pickup_time}. Est. fee: GHS ${booking.delivery_fee} payable by ${payingName} on delivery. Track: sakzee.com/track`
+  );
+
+  if (!booking.same_person && booking.recipient_phone && booking.recipient_phone !== booking.booker_phone) {
+    await notify(
+      booking.recipient_phone, pref,
+      TEMPLATES.booking_confirmation,
+      { '1': booking.recipient_name, '2': booking.reference, '3': booking.pickup_date, '4': booking.pickup_time },
+      `Sakzee: Hi ${booking.recipient_name}, a package is on its way to you! Ref: ${booking.reference}. From: ${booking.booker_name}. Track: sakzee.com/track`
+    );
   }
 }
 
-// ─── Dispatch based on preference ─────────────────────────────
-type Pref = 'email' | 'whatsapp' | 'both';
-
-async function notify(
-  pref: Pref = 'both',
-  email: () => Promise<void>,
-  whatsapp: () => Promise<void>
-) {
-  if (pref === 'email') return email();
-  if (pref === 'whatsapp') return whatsapp();
-  return Promise.all([email(), whatsapp()]);
-}
-
-// ─── Email base template ───────────────────────────────────────
-function baseTemplate(content: string) {
-  return `
-    <div style="font-family:'Segoe UI',sans-serif;max-width:580px;margin:0 auto;background:#f8f9ff;padding:2rem;">
-      <div style="background:#1a2456;padding:1.25rem 2rem;border-radius:10px 10px 0 0;text-align:center;">
-        <span style="color:white;font-size:1.5rem;font-weight:800;">sak<span style="color:#f97316;">zee</span></span>
-        <p style="color:rgba(255,255,255,0.6);font-size:0.8rem;margin:0.25rem 0 0;">Moving Dreams, Delivering Growth</p>
-      </div>
-      <div style="background:white;padding:2rem;border-radius:0 0 10px 10px;border:1px solid #e5e7eb;">
-        ${content}
-        <hr style="border:none;border-top:1px solid #f3f4f6;margin:1.5rem 0;"/>
-        <p style="color:#9ca3af;font-size:0.78rem;text-align:center;">
-          Sakzee Company Limited · Ubuntu Court Estate, Oyarifa, Accra<br/>
-          📞 0256 089 599 · ✉️ info@sakzee.com
-        </p>
-      </div>
-    </div>`;
-}
-
-// ══════════════════════════════════════════════════════════════
-// NOTIFICATION FUNCTIONS
-// ══════════════════════════════════════════════════════════════
-
-// 1. Vendor approved
-export async function notifyVendorApproved(vendor: {
-  email: string; business_name: string; contact_name: string;
-  phone: string; notification_preference?: Pref;
+export async function notifyDeliveryStatus(booking: {
+  reference: string;
+  booker_name: string; booker_phone: string;
+  recipient_name: string; recipient_phone: string;
+  status: string; delivery_fee: number;
+  paying_party: string; notification_preference: Pref;
+  same_person: boolean;
 }) {
-  const pref = vendor.notification_preference || 'both';
+  const pref = booking.notification_preference;
 
-  const html = baseTemplate(`
-    <h2 style="color:#1a2456;margin:0 0 0.75rem;">Welcome to Sakzee, ${vendor.business_name}! 🎉</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your vendor account has been <strong style="color:#15803d;">approved</strong>. You can now log in and start storing inventory and creating orders.</p>
-    <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/vendor/login" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;">Log In to Your Dashboard →</a>
-    </div>
-    <p style="color:#6b7280;font-size:0.875rem;">Questions? Call or WhatsApp us on <strong>0256 089 599</strong>.</p>
-  `);
-
-  await notify(pref,
-    () => sendEmail(vendor.email, '✅ Your Sakzee vendor account has been approved!', html),
-    () => sendWhatsApp(vendor.phone, TEMPLATES.vendor_approved, {
-      '1': vendor.business_name,
-    })
-
-  );
-}
-
-// 2. Vendor suspended
-export async function notifyVendorSuspended(vendor: {
-  email: string; business_name: string; contact_name: string;
-  phone: string; suspension_reason: string; notification_preference?: Pref;
-}) {
-  const pref = vendor.notification_preference || 'both';
-
-  const html = baseTemplate(`
-    <h2 style="color:#dc2626;margin:0 0 0.75rem;">Account Suspended</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your vendor account for <strong>${vendor.business_name}</strong> has been suspended.</p>
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:1rem;margin:1rem 0;">
-      <strong style="color:#dc2626;">Reason:</strong>
-      <p style="color:#374151;margin:0.5rem 0 0;">${vendor.suspension_reason}</p>
-    </div>
-    <p style="color:#374151;">To resolve this: <strong>📞 0256 089 599</strong> | <strong>✉️ info@sakzee.com</strong></p>
-  `);
-
-  await notify(pref,
-    () => sendEmail(vendor.email, '⚠️ Your Sakzee vendor account has been suspended', html),
-    () => sendWhatsApp(vendor.phone, TEMPLATES.vendor_suspended, {
-      '1': vendor.business_name,
-      '2': vendor.suspension_reason,
-    })
-  );
-}
-
-// 3. Inventory checked in
-export async function notifyInventoryCheckedIn(
-  vendor: { email: string; business_name: string; contact_name: string; phone: string; notification_preference?: Pref },
-  product: { name: string; quantity: number; space_type: string }
-) {
-  const pref = vendor.notification_preference || 'both';
-
-  const html = baseTemplate(`
-    <h2 style="color:#1a2456;margin:0 0 0.75rem;">Inventory Checked In ✅</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, your inventory has been received and verified by our warehouse team.</p>
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:1.25rem;margin:1rem 0;">
-      <table style="width:100%;font-size:0.875rem;">
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Product</td><td style="color:#1a2456;font-weight:600;text-align:right;">${product.name}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Quantity confirmed</td><td style="color:#15803d;font-weight:700;text-align:right;">${product.quantity} units</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Space type</td><td style="color:#1a2456;font-weight:600;text-align:right;">${product.space_type === 'pallet' ? 'Pallet' : 'Shelf'}</td></tr>
-      </table>
-    </div>
-    <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/vendor/orders/new" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">Create a Delivery Order →</a>
-    </div>
-  `);
-
-  await notify(pref,
-    () => sendEmail(vendor.email, `📦 Inventory received: ${product.name}`, html),
-    () => sendWhatsApp(vendor.phone, TEMPLATES.inventory_checked_in, {
-      '1': vendor.contact_name,
-      '2': product.name,
-      '3': String(product.quantity),
-    })
-
-  );
-}
-
-// 4. Vendor order status
-export async function notifyVendorOrderStatus(
-  vendor: { email: string; contact_name: string; phone: string; notification_preference?: Pref },
-  order: { reference: string; status: string; delivery_address: string; recipient_name: string }
-) {
-  const pref = vendor.notification_preference || 'both';
-  const statusMessages: Record<string, { emoji: string; title: string; msg: string }> = {
-    Processing: { emoji: '⚙️', title: 'Order Being Processed', msg: 'Your order is being picked and packed by the Sakzee warehouse team.' },
-    Packed: { emoji: '📦', title: 'Order Packed', msg: 'Your order has been packed and is ready for dispatch.' },
-    Shipped: { emoji: '🚚', title: 'Order Out for Delivery', msg: 'Your order is now out for delivery to the recipient.' },
-    Delivered: { emoji: '✅', title: 'Order Delivered!', msg: 'Your order has been successfully delivered.' },
+  const msgs: Record<string, { booker: string; recipient: string }> = {
+    Processing: {
+      booker: `Sakzee: Hi ${booking.booker_name}, delivery ${booking.reference} is being processed. Track: sakzee.com/track`,
+      recipient: `Sakzee: Hi ${booking.recipient_name}, your package ${booking.reference} is being prepared. Track: sakzee.com/track`,
+    },
+    Shipped: {
+      booker: `Sakzee: Hi ${booking.booker_name}, delivery ${booking.reference} is out for delivery! Track: sakzee.com/track`,
+      recipient: `Sakzee: Hi ${booking.recipient_name}, your package ${booking.reference} is on its way! Track: sakzee.com/track`,
+    },
+    Delivered: {
+      booker: booking.paying_party === 'booker'
+        ? `Sakzee: Hi ${booking.booker_name}, delivery ${booking.reference} complete! Pay GHS ${booking.delivery_fee}: sakzee.com/pay/${booking.reference}`
+        : `Sakzee: Hi ${booking.booker_name}, delivery ${booking.reference} complete! ${booking.recipient_name} will make payment. Thank you!`,
+      recipient: booking.paying_party === 'recipient'
+        ? `Sakzee: Hi ${booking.recipient_name}, your package ${booking.reference} delivered! Pay GHS ${booking.delivery_fee}: sakzee.com/pay/${booking.reference}`
+        : `Sakzee: Hi ${booking.recipient_name}, your package ${booking.reference} has been delivered! Thank you for choosing Sakzee.`,
+    },
   };
-  const s = statusMessages[order.status];
-  if (!s) return;
 
-  const html = baseTemplate(`
-    <h2 style="color:#1a2456;margin:0 0 0.75rem;">${s.emoji} ${s.title}</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${vendor.contact_name}, ${s.msg}</p>
-    <div style="background:#f8f9ff;border:1px solid #e5e7eb;border-radius:10px;padding:1.25rem;margin:1rem 0;">
-      <table style="width:100%;font-size:0.875rem;">
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Reference</td><td style="color:#1a2456;font-weight:700;text-align:right;font-family:monospace;">${order.reference}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Status</td><td style="color:#f97316;font-weight:700;text-align:right;">${order.status}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Recipient</td><td style="color:#1a2456;font-weight:600;text-align:right;">${order.recipient_name}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Address</td><td style="color:#1a2456;font-weight:600;text-align:right;">${order.delivery_address}</td></tr>
-      </table>
-    </div>
-    <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/vendor/orders" style="background:#1a2456;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">View All Orders →</a>
-    </div>
-  `);
+  const m = msgs[booking.status];
+  if (!m) return;
 
-  await notify(pref,
-    () => sendEmail(vendor.email, `${s.emoji} Order ${order.reference} — ${s.title}`, html),
-    () => sendWhatsApp(vendor.phone, TEMPLATES.order_status_update, {
-      '1': vendor.contact_name,
-      '2': order.reference,
-      '3': order.status,
-      '4': order.recipient_name,
-    })
-  );
+  await notify(booking.booker_phone, pref, TEMPLATES.order_status_client, { '1': booking.booker_name, '2': booking.reference, '3': booking.status }, m.booker);
+
+  if (!booking.same_person && booking.recipient_phone && booking.recipient_phone !== booking.booker_phone) {
+    await notify(booking.recipient_phone, pref, TEMPLATES.order_status_client, { '1': booking.recipient_name, '2': booking.reference, '3': booking.status }, m.recipient);
+  }
 }
 
-// 5. Client booking confirmation
 export async function notifyClientBooking(
-  client: { email: string; name: string; phone: string; notification_preference?: Pref },
+  client: { phone: string; name: string; notification_preference?: Pref },
   booking: { reference: string; service: string; date: string }
 ) {
-  const pref = client.notification_preference || 'both';
-
-  const html = baseTemplate(`
-    <h2 style="color:#1a2456;margin:0 0 0.75rem;">Booking Confirmed! 🎉</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${client.name}, your booking has been confirmed.</p>
-    <div style="background:#f8f9ff;border:1px solid #e5e7eb;border-radius:10px;padding:1.25rem;margin:1rem 0;">
-      <table style="width:100%;font-size:0.875rem;">
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Reference</td><td style="color:#1a2456;font-weight:700;text-align:right;font-family:monospace;">${booking.reference}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Service</td><td style="color:#1a2456;font-weight:600;text-align:right;">${booking.service}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Date</td><td style="color:#1a2456;font-weight:600;text-align:right;">${booking.date}</td></tr>
-      </table>
-    </div>
-    <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">Track Your Delivery →</a>
-    </div>
-    <p style="color:#6b7280;font-size:0.875rem;">Questions? Call <strong>0256 089 599</strong></p>
-  `);
-
-  // Split date and time for template variables
-  const [date, ...timeParts] = booking.date.split(' at ');
-  const time = timeParts.join(' at ') || '';
-
-  await notify(pref,
-    () => sendEmail(client.email, `🎉 Booking Confirmed — ${booking.reference}`, html),
-    () => sendWhatsApp(client.phone, TEMPLATES.booking_confirmation, {
-      '1': client.name,
-      '2': booking.reference,
-      '3': date,
-      '4': time,
-    })
+  await notify(
+    client.phone, client.notification_preference || 'both',
+    TEMPLATES.booking_confirmation, { '1': client.name, '2': booking.reference, '3': booking.date, '4': '' },
+    `Sakzee: Hi ${client.name}, your booking ${booking.reference} is confirmed. Track: sakzee.com/track - Call 0256 089 599`
   );
 }
 
-// 6. Client order status
 export async function notifyClientOrderStatus(
-  client: { email: string; name: string; phone: string; notification_preference?: Pref },
-  booking: { reference: string; status: string; service: string }
+  client: { phone: string; name: string; notification_preference?: Pref },
+  booking: { reference: string; status: string; service: string; delivery_fee?: number }
 ) {
-  const pref = client.notification_preference || 'both';
-  const statusMessages: Record<string, { emoji: string; title: string; msg: string }> = {
-    Processing: { emoji: '⚙️', title: 'Your delivery is being processed', msg: 'We are preparing your delivery.' },
-    Packed: { emoji: '📦', title: 'Your delivery is packed', msg: 'Your package has been packed and is ready for pickup.' },
-    Shipped: { emoji: '🚚', title: 'Your delivery is on the way!', msg: 'Your package is out for delivery.' },
-    Delivered: { emoji: '✅', title: 'Delivery complete!', msg: 'Your package has been successfully delivered. Thank you for choosing Sakzee!' },
-  };
-  const s = statusMessages[booking.status];
-  if (!s) return;
+  const smsText = booking.status === 'Delivered' && booking.delivery_fee
+    ? `Sakzee: Hi ${client.name}, delivery ${booking.reference} complete! Pay GHS ${booking.delivery_fee}: sakzee.com/pay/${booking.reference}`
+    : `Sakzee: Hi ${client.name}, delivery ${booking.reference} is now ${booking.status}. Track: sakzee.com/track`;
 
-  const html = baseTemplate(`
-    <h2 style="color:#1a2456;margin:0 0 0.75rem;">${s.emoji} ${s.title}</h2>
-    <p style="color:#374151;line-height:1.7;">Hi ${client.name}, ${s.msg}</p>
-    <div style="background:#f8f9ff;border:1px solid #e5e7eb;border-radius:10px;padding:1.25rem;margin:1rem 0;">
-      <table style="width:100%;font-size:0.875rem;">
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Reference</td><td style="color:#1a2456;font-weight:700;text-align:right;font-family:monospace;">${booking.reference}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Service</td><td style="color:#1a2456;font-weight:600;text-align:right;">${booking.service}</td></tr>
-        <tr><td style="color:#6b7280;padding:0.3rem 0;">Status</td><td style="color:#f97316;font-weight:700;text-align:right;">${booking.status}</td></tr>
-      </table>
-    </div>
-    <div style="text-align:center;margin:1.5rem 0;">
-      <a href="https://sakzee.com/track" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;">Track Your Delivery →</a>
-    </div>
-  `);
-
-  await notify(pref,
-    () => sendEmail(client.email, `${s.emoji} ${s.title} — ${booking.reference}`, html),
-    () => sendWhatsApp(client.phone, TEMPLATES.order_status_client, {
-      '1': client.name,
-      '2': booking.reference,
-      '3': booking.status,
-    })
+  await notify(
+    client.phone, client.notification_preference || 'both',
+    TEMPLATES.order_status_client, { '1': client.name, '2': booking.reference, '3': booking.status },
+    smsText
   );
 }

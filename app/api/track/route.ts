@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         const assignments = await assignmentRes.json();
         const assignment = assignments?.[0] || null;
 
-        // Get rider if assigned
+        // Get rider
         let rider = null;
         if (assignment?.rider_id) {
             const riderRes = await fetch(

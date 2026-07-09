@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyClientBooking } from '@/lib/notifications';
+import { notifyDeliveryBooked, notifyClientBooking } from '@/lib/notifications';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 reference: body.reference,
                 name: body.name,
-                email: body.email,
                 phone: body.phone,
+                email: body.email || null,
                 business: body.business || '',
                 service: body.service,
                 date: body.date,
@@ -34,8 +34,11 @@ export async function POST(req: NextRequest) {
                 distance_km: body.distance_km || 0,
                 region: body.region || null,
                 notification_preference: body.notification_preference || 'both',
+                payment_status: body.payment_status || 'pending',
                 status: body.status || 'Received',
-                paid_at: body.paid_at || new Date().toISOString(),
+                recipient_name: body.recipient_name || null,
+                recipient_phone: body.recipient_phone || null,
+                paying_party: body.paying_party || 'booker',
             }),
         });
 
@@ -44,21 +47,26 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: err }, { status: 500 });
         }
 
-        // Send notification with preference
-        const pref = body.notification_preference || 'both';
-
+        // Send notifications
         if (body.booking_type === 'delivery') {
-            await notifyClientBooking(
-                { email: body.email, name: body.name, phone: body.phone, notification_preference: pref },
-                {
-                    reference: body.reference,
-                    service: `Delivery — ${body.pickup_address} → ${body.delivery_address}`,
-                    date: `${body.date} at ${body.pickup_time}`,
-                }
-            );
+            await notifyDeliveryBooked({
+                reference: body.reference,
+                booker_name: body.name,
+                booker_phone: body.phone,
+                recipient_name: body.recipient_name || body.name,
+                recipient_phone: body.recipient_phone || body.phone,
+                pickup_address: body.pickup_address,
+                delivery_address: body.delivery_address,
+                pickup_date: body.date,
+                pickup_time: body.pickup_time,
+                delivery_fee: body.delivery_fee || 0,
+                paying_party: body.paying_party || 'booker',
+                notification_preference: body.notification_preference || 'both',
+                same_person: body.same_person || false,
+            });
         } else {
             await notifyClientBooking(
-                { email: body.email, name: body.name, phone: body.phone, notification_preference: pref },
+                { phone: body.phone, name: body.name, notification_preference: body.notification_preference || 'both' },
                 { reference: body.reference, service: body.service, date: body.date }
             );
         }

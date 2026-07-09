@@ -2,37 +2,31 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 
-declare global {
-    interface Window {
-        PaystackPop: any;
-        google: any;
-        initGoogleMaps: () => void;
-    }
+declare global { interface Window { google: any; initGoogleMaps: () => void; } }
+
+const BASE_FEE = 35;
+const PER_KM = 2;
+const WEIGHT_THRESHOLD = 5;
+const PER_KG_OVER = 3;
+
+function calcFee(km: number, weight: number) {
+    return Math.round((BASE_FEE + km * PER_KM) + (weight > WEIGHT_THRESHOLD ? (weight - WEIGHT_THRESHOLD) * PER_KG_OVER : 0));
 }
 
-const BASE_FEE = 25;
-const INCLUDED_KM = 10;
-const PER_KM_OVER = 1.5;
-const WEIGHT_SURCHARGE = 10;
-
-function calcFee(km: number, isOverweight: boolean) {
-    const extraKm = Math.max(0, km - INCLUDED_KM);
-    const distFee = BASE_FEE + extraKm * PER_KM_OVER;
-    const weightFee = isOverweight ? WEIGHT_SURCHARGE : 0;
-    return Math.round(distFee + weightFee);
-}
+type Pref = 'whatsapp' | 'sms' | 'both';
 
 export default function BookDeliveryPage() {
     const [step, setStep] = useState(1);
     const [form, setForm] = useState({
-        name: '', email: '', phone: '',
+        booker_name: '', booker_phone: '',
+        notification_preference: 'both' as Pref,
+        same_person: false,
+        recipient_name: '', recipient_phone: '',
+        paying_party: 'booker' as 'booker' | 'recipient',
         pickup_address: '', delivery_address: '',
-        weight_band: '', package_description: '',
+        weight_kg: '', package_description: '',
         pickup_date: '', pickup_time: '',
-        notification_preference: 'both',
     });
-    const [pickupLatLng, setPickupLatLng] = useState<{ lat: number; lng: number } | null>(null);
-    const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
     const [distanceKm, setDistanceKm] = useState<number | null>(null);
     const [distanceText, setDistanceText] = useState('');
     const [calculatingDistance, setCalculatingDistance] = useState(false);
@@ -40,133 +34,45 @@ export default function BookDeliveryPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [reference, setReference] = useState('');
-    const [menuOpen, setMenuOpen] = useState(false);
     const [mapsReady, setMapsReady] = useState(false);
-
+    const [menuOpen, setMenuOpen] = useState(false);
     const pickupRef = useRef<HTMLInputElement>(null);
     const deliveryRef = useRef<HTMLInputElement>(null);
     const pickupAC = useRef<any>(null);
     const deliveryAC = useRef<any>(null);
 
-    // Load scripts once
+    const MAPS_KEY = 'AIzaSyBAK6MKw3OJtKMQAgvToW8ZtQVklFCr1i8';
+
     useEffect(() => {
-        // Paystack
-        if (!document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]')) {
-            const s = document.createElement('script');
-            s.src = 'https://js.paystack.co/v1/inline.js';
-            s.async = true;
-            document.body.appendChild(s);
-        }
-
-        // Google Maps — load directly with key
-        const MAPS_KEY = 'AIzaSyBAK6MKw3OJtKMQAgvToW8ZtQVklFCr1i8';
-
-        if (window.google?.maps?.places) {
-            setMapsReady(true);
-            return;
-        }
-
         window.initGoogleMaps = () => setMapsReady(true);
-
+        if (window.google?.maps?.places) { setMapsReady(true); return; }
         if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
             const s = document.createElement('script');
             s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&callback=initGoogleMaps`;
-            s.async = true;
-            s.defer = true;
-            document.head.appendChild(s);
+            s.async = true; s.defer = true; document.head.appendChild(s);
         }
     }, []);
 
-    // Attach autocomplete whenever Maps is ready AND we're on step 2
     const attachAutocomplete = useCallback(() => {
         if (!mapsReady || !window.google?.maps?.places) return;
-
         if (pickupRef.current && !pickupAC.current) {
-            pickupAC.current = new window.google.maps.places.Autocomplete(pickupRef.current, {
-                componentRestrictions: { country: 'gh' },
-                fields: ['formatted_address', 'geometry'],
-            });
+            pickupAC.current = new window.google.maps.places.Autocomplete(pickupRef.current, { componentRestrictions: { country: 'gh' }, fields: ['formatted_address'] });
             pickupAC.current.addListener('place_changed', () => {
-                const place = pickupAC.current.getPlace();
-                if (place?.formatted_address) {
-                    setForm(prev => ({ ...prev, pickup_address: place.formatted_address }));
-                }
-                if (place?.geometry?.location) {
-                    setPickupLatLng({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
-                } else {
-                    setPickupLatLng(null);
-                }
+                const p = pickupAC.current.getPlace();
+                if (p?.formatted_address) setForm(prev => ({ ...prev, pickup_address: p.formatted_address }));
             });
         }
-
         if (deliveryRef.current && !deliveryAC.current) {
-            deliveryAC.current = new window.google.maps.places.Autocomplete(deliveryRef.current, {
-                componentRestrictions: { country: 'gh' },
-                fields: ['formatted_address', 'geometry'],
-            });
+            deliveryAC.current = new window.google.maps.places.Autocomplete(deliveryRef.current, { componentRestrictions: { country: 'gh' }, fields: ['formatted_address'] });
             deliveryAC.current.addListener('place_changed', () => {
-                const place = deliveryAC.current.getPlace();
-                if (place?.formatted_address) {
-                    setForm(prev => ({ ...prev, delivery_address: place.formatted_address }));
-                }
-                if (place?.geometry?.location) {
-                    setDeliveryLatLng({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
-                } else {
-                    setDeliveryLatLng(null);
-                }
+                const p = deliveryAC.current.getPlace();
+                if (p?.formatted_address) setForm(prev => ({ ...prev, delivery_address: p.formatted_address }));
             });
         }
     }, [mapsReady]);
 
-    useEffect(() => {
-        if (step === 2) {
-            // Small delay to ensure DOM is rendered
-            setTimeout(attachAutocomplete, 100);
-        }
-    }, [step, mapsReady, attachAutocomplete]);
-
-    // Re-attach if mapsReady fires after step 2
-    useEffect(() => {
-        if (mapsReady && step === 2) {
-            setTimeout(attachAutocomplete, 100);
-        }
-    }, [mapsReady]);
-
-    async function calculateDistance() {
-        if (!form.pickup_address || !form.delivery_address || !window.google) return;
-        setCalculatingDistance(true);
-        setDistanceKm(null);
-
-        // Prefer exact coordinates from the selected autocomplete suggestion —
-        // re-geocoding the address text can resolve to a different, less precise
-        // point and was the cause of inflated/inconsistent distances.
-        const origin = pickupLatLng
-            ? new window.google.maps.LatLng(pickupLatLng.lat, pickupLatLng.lng)
-            : form.pickup_address;
-        const destination = deliveryLatLng
-            ? new window.google.maps.LatLng(deliveryLatLng.lat, deliveryLatLng.lng)
-            : form.delivery_address;
-
-        const service = new window.google.maps.DistanceMatrixService();
-        service.getDistanceMatrix({
-            origins: [origin],
-            destinations: [destination],
-            travelMode: window.google.maps.TravelMode.DRIVING,
-            unitSystem: window.google.maps.UnitSystem.METRIC,
-        }, (res: any, status: string) => {
-            if (status === 'OK' && res.rows[0]?.elements[0]?.status === 'OK') {
-                const el = res.rows[0].elements[0];
-                const km = Math.round(el.distance.value / 1000);
-                setDistanceKm(km);
-                setDistanceText(el.distance.text);
-            } else {
-                // Fallback estimate
-                setDistanceKm(20);
-                setDistanceText('~20 km (estimated)');
-            }
-            setCalculatingDistance(false);
-        });
-    }
+    useEffect(() => { if (step === 3) setTimeout(attachAutocomplete, 100); }, [step, mapsReady, attachAutocomplete]);
+    useEffect(() => { if (mapsReady && step === 3) setTimeout(attachAutocomplete, 100); }, [mapsReady]);
 
     useEffect(() => {
         if (form.pickup_address && form.delivery_address && mapsReady) {
@@ -175,57 +81,69 @@ export default function BookDeliveryPage() {
         }
     }, [form.pickup_address, form.delivery_address, mapsReady]);
 
-    const isOverweight = form.weight_band === 'over';
-    const km = distanceKm || 0;
-    const deliveryFee = km > 0 ? calcFee(km, isOverweight) : 0;
+    async function calculateDistance() {
+        if (!window.google) return;
+        setCalculatingDistance(true); setDistanceKm(null);
+        const service = new window.google.maps.DistanceMatrixService();
+        service.getDistanceMatrix({
+            origins: [form.pickup_address], destinations: [form.delivery_address],
+            travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (res: any, status: string) => {
+            if (status === 'OK' && res.rows[0]?.elements[0]?.status === 'OK') {
+                const el = res.rows[0].elements[0];
+                setDistanceKm(Math.ceil(el.distance.value / 1000));
+                setDistanceText(el.distance.text);
+            } else { setDistanceKm(20); setDistanceText('~20 km (estimated)'); }
+            setCalculatingDistance(false);
+        });
+    }
 
-    function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
-        const { name, value } = e.target;
-        if (name === 'pickup_address') setPickupLatLng(null);
-        if (name === 'delivery_address') setDeliveryLatLng(null);
-        setForm(prev => ({ ...prev, [name]: value }));
+    const weight = Number(form.weight_kg) || 0;
+    const km = distanceKm || 0;
+    const deliveryFee = km > 0 ? calcFee(km, weight) : 0;
+    const payingName = form.paying_party === 'recipient' ? (form.recipient_name || 'Recipient') : form.booker_name;
+
+    function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+        const { name, value, type } = e.target;
+        const checked = (e.target as HTMLInputElement).checked;
+        if (name === 'same_person') {
+            setForm(prev => ({
+                ...prev,
+                same_person: checked,
+                recipient_name: checked ? prev.booker_name : '',
+                recipient_phone: checked ? prev.booker_phone : '',
+            }));
+        } else {
+            setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        }
     }
 
     function nextStep() {
         setError('');
-        if (step === 1 && (!form.name || !form.email || !form.phone)) {
-            setError('Please fill in all required fields.'); return;
-        }
-        if (step === 2) {
-            if (!form.pickup_address || !form.delivery_address || !form.pickup_date || !form.pickup_time || !form.weight_band) {
-                setError('Please fill in all delivery details.'); return;
-            }
-        }
+        if (step === 1 && (!form.booker_name || !form.booker_phone)) { setError('Please fill in your name and phone number.'); return; }
+        if (step === 2 && !form.same_person && (!form.recipient_name || !form.recipient_phone)) { setError('Please fill in recipient details.'); return; }
+        if (step === 3 && (!form.pickup_address || !form.delivery_address || !form.pickup_date || !form.pickup_time)) { setError('Please fill in all delivery details.'); return; }
         setStep(step + 1);
     }
 
-    function initPaystack() {
-        if (!window.PaystackPop) { setError('Payment system not loaded. Please refresh.'); return; }
-        setLoading(true);
-        const ref = `SAKDEL-${Date.now()}`;
-        const handler = window.PaystackPop.setup({
-            key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || 'pk_test_6acba43a4893ab00f1a9618f7e84e5a471fe16ac',
-            email: form.email,
-            amount: deliveryFee * 100,
-            currency: 'GHS',
-            ref,
-            callback: () => saveBooking(ref),
-            onClose: () => { setLoading(false); setError('Payment cancelled. Please try again.'); },
-        });
-        handler.openIframe();
-    }
-
-    async function saveBooking(ref: string) {
+    async function confirmBooking() {
+        setLoading(true); setError('');
         try {
+            const ref = `SAKDEL-${Date.now()}`;
             const res = await fetch('/api/bookings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     reference: ref,
-                    name: form.name, email: form.email, phone: form.phone,
+                    name: form.booker_name,
+                    phone: form.booker_phone,
+                    recipient_name: form.same_person ? form.booker_name : form.recipient_name,
+                    recipient_phone: form.same_person ? form.booker_phone : form.recipient_phone,
+                    paying_party: form.paying_party,
+                    same_person: form.same_person,
+                    notification_preference: form.notification_preference,
                     service: 'Delivery',
                     date: form.pickup_date,
-                    notes: form.package_description,
                     pickup_address: form.pickup_address,
                     delivery_address: form.delivery_address,
                     package_description: form.package_description,
@@ -233,44 +151,107 @@ export default function BookDeliveryPage() {
                     booking_type: 'delivery',
                     delivery_fee: deliveryFee,
                     distance_km: km,
-                    notification_preference: form.notification_preference,
+                    payment_status: 'pending',
                     status: 'Received',
-                    paid_at: new Date().toISOString(),
                 }),
             });
-            if (!res.ok) throw new Error('Failed to save booking');
+            if (!res.ok) throw new Error('Failed to confirm booking');
             setReference(ref);
             setSuccess(true);
-            setLoading(false);
-        } catch (e: any) {
-            setError('Payment received but booking failed. Call 0256 089 599 with ref: ' + ref);
-            setLoading(false);
-        }
+        } catch (e: any) { setError(e.message); }
+        setLoading(false);
+    }
+
+    function downloadReceipt() {
+        const content = `
+SAKZEE DELIVERY RECEIPT
+=======================
+Reference: ${reference}
+Date: ${new Date().toLocaleDateString('en-GH', { day: 'numeric', month: 'long', year: 'numeric' })}
+
+SENDER
+------
+Name: ${form.booker_name}
+Phone: ${form.booker_phone}
+
+RECIPIENT
+---------
+Name: ${form.same_person ? form.booker_name : form.recipient_name}
+Phone: ${form.same_person ? form.booker_phone : form.recipient_phone}
+
+DELIVERY DETAILS
+----------------
+Pickup: ${form.pickup_address}
+Delivery: ${form.delivery_address}
+Date: ${form.pickup_date}
+Time: ${form.pickup_time}
+Weight: ${weight}kg
+Distance: ${distanceText}
+${form.package_description ? `Package: ${form.package_description}` : ''}
+
+PAYMENT
+-------
+Estimated Fee: GHS ${deliveryFee}
+Payment by: ${payingName}
+Payment mode: Pay on delivery
+
+TRACKING
+--------
+Track your delivery at: sakzee.com/track
+Use reference: ${reference}
+
+=======================
+Sakzee Company Limited
+Ubuntu Court Estate, Oyarifa, Accra
+0256 089 599 | info@sakzee.com
+Moving Dreams, Delivering Growth
+    `.trim();
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Sakzee-Receipt-${reference}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
     }
 
     const inp: React.CSSProperties = { width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a2456', background: 'white' };
     const lbl: React.CSSProperties = { display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' };
+    const STEPS = ['Sender', 'Recipient', 'Delivery', 'Confirm'];
 
     if (success) return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: "'Segoe UI', sans-serif" }}>
-            <div style={{ background: 'white', borderRadius: '16px', padding: '3rem', textAlign: 'center', maxWidth: '480px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', width: '100%' }}>
+            <div style={{ background: 'white', borderRadius: '16px', padding: '2.5rem', textAlign: 'center', maxWidth: '500px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', width: '100%' }}>
                 <div style={{ width: '64px', height: '64px', background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
                 <h2 style={{ color: '#1a2456', fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.75rem' }}>Delivery Booked! 🚚</h2>
-                <p style={{ color: '#666', lineHeight: 1.7, marginBottom: '1rem', fontSize: '0.95rem' }}>
-                    Our team will pick up from <strong>{form.pickup_address}</strong> on <strong>{form.pickup_date} at {form.pickup_time}</strong>.
+                <p style={{ color: '#666', lineHeight: 1.7, marginBottom: '1rem', fontSize: '0.92rem' }}>
+                    Both <strong>{form.booker_name}</strong> and <strong>{form.same_person ? 'recipient (same person)' : form.recipient_name}</strong> have been notified via {form.notification_preference === 'both' ? 'WhatsApp & SMS' : form.notification_preference}.
                 </p>
+
+                {/* Reference */}
                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', marginBottom: '0.85rem' }}>
                     <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '0.25rem' }}>Tracking Reference</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a2456', fontFamily: 'monospace' }}>{reference}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1a2456', fontFamily: 'monospace' }}>{reference}</div>
                 </div>
+
+                {/* Fee + paying party */}
                 <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '0.85rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#c2410c' }}>
-                    <strong>GHS {deliveryFee} paid</strong> · Confirmation sent via {form.notification_preference === 'both' ? 'email & WhatsApp' : form.notification_preference}
+                    <strong>Estimated fee: GHS {deliveryFee}</strong> — payable on delivery by <strong>{payingName}</strong>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                    <Link href="/track" style={{ background: '#1a2456', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Track Delivery</Link>
-                    <Link href="/" style={{ background: '#f97316', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Back to Home</Link>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <button onClick={downloadReceipt} style={{ width: '100%', background: '#1a2456', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                        Download Receipt
+                    </button>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <Link href="/track" style={{ flex: 1, background: '#f97316', color: 'white', padding: '0.75rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.88rem', textAlign: 'center', display: 'block' }}>Track Delivery</Link>
+                        <Link href="/" style={{ flex: 1, background: '#f8f9ff', color: '#1a2456', padding: '0.75rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.88rem', textAlign: 'center', display: 'block', border: '1px solid #e2e8f0' }}>Back to Home</Link>
+                    </div>
                 </div>
             </div>
         </div>
@@ -279,26 +260,26 @@ export default function BookDeliveryPage() {
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
             <style>{`
-        @media (max-width: 640px) { .del-desktop-nav { display: none !important; } .del-hamburger { display: flex !important; } }
+        @media (max-width: 640px) { .del-nav { display: none !important; } .del-ham { display: flex !important; } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .pac-container { z-index: 9999 !important; }
       `}</style>
 
             <nav style={{ background: '#1a2456', padding: '0.9rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
                 <Link href="/" style={{ color: 'white', textDecoration: 'none', fontSize: '1.4rem', fontWeight: 800 }}>sak<span style={{ color: '#f97316' }}>zee</span></Link>
-                <div className="del-desktop-nav" style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
+                <div className="del-nav" style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
                     <Link href="/" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>Home</Link>
                     <Link href="/pricing" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>Pricing</Link>
                     <Link href="/track" style={{ color: 'rgba(255,255,255,0.75)', textDecoration: 'none', fontSize: '0.9rem' }}>Track</Link>
                 </div>
-                <button className="del-hamburger" onClick={() => setMenuOpen(!menuOpen)} style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', flexDirection: 'column', gap: '5px', padding: '4px' }}>
+                <button className="del-ham" onClick={() => setMenuOpen(!menuOpen)} style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', flexDirection: 'column', gap: '5px', padding: '4px' }}>
                     {[0, 1, 2].map(i => <span key={i} style={{ display: 'block', width: '22px', height: '2px', background: 'white', borderRadius: '2px' }} />)}
                 </button>
             </nav>
 
             {menuOpen && (
                 <div style={{ background: '#1a2456', padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                    {[['/', 'Home'], ['/pricing', 'Pricing'], ['/track', 'Track Order']].map(([href, label]) => (
+                    {[['/', 'Home'], ['/pricing', 'Pricing'], ['/track', 'Track']].map(([href, label]) => (
                         <Link key={href} href={href} onClick={() => setMenuOpen(false)} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.95rem' }}>{label}</Link>
                     ))}
                 </div>
@@ -307,53 +288,49 @@ export default function BookDeliveryPage() {
             <div style={{ maxWidth: '580px', margin: '2rem auto', padding: '0 1rem' }}>
                 <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#fff3e8', color: '#f97316', padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-                        🚚 Instant Delivery Booking
+                        🚚 Pay on Delivery
                     </div>
                     <h1 style={{ color: '#1a2456', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.4rem' }}>Book a Delivery</h1>
-                    <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Pay now · Instant confirmation · Same-day pickup in Accra</p>
+                    <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Book now · Pay when delivered · Both parties notified</p>
                 </div>
 
-                {/* Steps */}
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-                    {['Your Details', 'Delivery Info', 'Pay & Confirm'].map((label, i) => (
-                        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: step > i + 1 ? '#22c55e' : step === i + 1 ? '#1a2456' : '#e2e8f0', color: step >= i + 1 ? 'white' : '#999', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>
-                                {step > i + 1 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg> : i + 1}
+                {/* Step indicators */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem', marginBottom: '2rem' }}>
+                    {STEPS.map((label, i) => (
+                        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: step > i + 1 ? '#22c55e' : step === i + 1 ? '#1a2456' : '#e2e8f0', color: step >= i + 1 ? 'white' : '#999', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>
+                                {step > i + 1 ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg> : i + 1}
                             </div>
-                            <span style={{ fontSize: '0.78rem', color: step === i + 1 ? '#1a2456' : '#999', fontWeight: step === i + 1 ? 600 : 400, whiteSpace: 'nowrap' as const }}>{label}</span>
-                            {i < 2 && <div style={{ width: '20px', height: '2px', background: step > i + 1 ? '#22c55e' : '#e2e8f0', flexShrink: 0 }} />}
+                            <span style={{ fontSize: '0.72rem', color: step === i + 1 ? '#1a2456' : '#999', fontWeight: step === i + 1 ? 600 : 400, whiteSpace: 'nowrap' as const }}>{label}</span>
+                            {i < 3 && <div style={{ width: '16px', height: '2px', background: step > i + 1 ? '#22c55e' : '#e2e8f0', flexShrink: 0 }} />}
                         </div>
                     ))}
                 </div>
 
                 <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-                    <h2 style={{ color: '#1a2456', fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                        {step === 1 ? 'Your Information' : step === 2 ? 'Delivery Details' : 'Review & Pay'}
+                    <h2 style={{ color: '#1a2456', fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                        {STEPS[step - 1]} {step === 1 ? 'Details' : step === 2 ? 'Details' : step === 3 ? 'Information' : '& Confirm'}
                     </h2>
                     <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                        {step === 1 ? 'Tell us who you are' : step === 2 ? 'Pickup and delivery addresses' : 'Confirm and pay to book instantly'}
+                        {step === 1 ? 'Person placing this delivery order' : step === 2 ? 'Person receiving the package' : step === 3 ? 'Pickup and delivery addresses' : 'Review booking — payment on delivery'}
                     </p>
 
                     {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem 1rem', color: '#dc2626', fontSize: '0.875rem', marginBottom: '1.25rem' }}>{error}</div>}
 
-                    {/* STEP 1 */}
+                    {/* STEP 1 — SENDER */}
                     {step === 1 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div><label style={lbl}>Full Name *</label><input style={inp} name="name" value={form.name} onChange={handleChange} placeholder="Your full name" /></div>
-                            <div><label style={lbl}>Email Address *</label><input style={inp} name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" /></div>
-                            <div><label style={lbl}>Phone Number *</label><input style={inp} name="phone" value={form.phone} onChange={handleChange} placeholder="0XX XXX XXXX" /></div>
+                            <div><label style={lbl}>Full Name *</label><input style={inp} name="booker_name" value={form.booker_name} onChange={handleChange} placeholder="Sender's full name" /></div>
+                            <div><label style={lbl}>Phone Number *</label><input style={inp} name="booker_phone" value={form.booker_phone} onChange={handleChange} placeholder="0XX XXX XXXX" /></div>
                             <div>
                                 <label style={{ ...lbl, marginBottom: '0.65rem' }}>Notification Preference</label>
+                                <p style={{ color: '#6b7280', fontSize: '0.78rem', marginBottom: '0.65rem', marginTop: '-0.3rem' }}>Both sender and recipient will be notified via your selected channel</p>
                                 <div style={{ display: 'flex', gap: '0.65rem' }}>
-                                    {[
-                                        { value: 'email', icon: '✉️', label: 'Email' },
-                                        { value: 'whatsapp', icon: '💬', label: 'WhatsApp' },
-                                        { value: 'both', icon: '🔔', label: 'Both (Recommended)' },
-                                    ].map(opt => (
+                                    {[{ value: 'whatsapp', icon: '💬', label: 'WhatsApp' }, { value: 'sms', icon: '📱', label: 'SMS' }, { value: 'both', icon: '🔔', label: 'Both' }].map(opt => (
                                         <label key={opt.value} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', padding: '0.75rem 0.5rem', border: `2px solid ${form.notification_preference === opt.value ? '#1a2456' : '#e2e8f0'}`, borderRadius: '10px', cursor: 'pointer', background: form.notification_preference === opt.value ? '#f0f3ff' : 'white', textAlign: 'center' }}>
-                                            <input type="radio" name="notification_preference" value={opt.value} checked={form.notification_preference === opt.value} onChange={handleChange} style={{ width: '16px', height: '16px', accentColor: '#1a2456', cursor: 'pointer' }} />
-                                            <span style={{ fontSize: '1.15rem' }}>{opt.icon}</span>
-                                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: form.notification_preference === opt.value ? '#1a2456' : '#6b7280', lineHeight: 1.3 }}>{opt.label}</span>
+                                            <input type="radio" name="notification_preference" value={opt.value} checked={form.notification_preference === opt.value} onChange={handleChange} style={{ display: 'none' }} />
+                                            <span style={{ fontSize: '1.25rem' }}>{opt.icon}</span>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: form.notification_preference === opt.value ? '#1a2456' : '#6b7280' }}>{opt.label}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -361,35 +338,58 @@ export default function BookDeliveryPage() {
                         </div>
                     )}
 
-                    {/* STEP 2 */}
+                    {/* STEP 2 — RECIPIENT */}
                     {step === 2 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {/* Same person checkbox */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', background: '#f8f9ff', borderRadius: '10px', cursor: 'pointer', border: '1.5px solid #e2e8f0' }}>
+                                <input type="checkbox" name="same_person" checked={form.same_person} onChange={handleChange} style={{ width: '18px', height: '18px', accentColor: '#1a2456', cursor: 'pointer', flexShrink: 0 }} />
+                                <div>
+                                    <div style={{ fontWeight: 600, color: '#1a2456', fontSize: '0.9rem' }}>I am also the recipient</div>
+                                    <div style={{ color: '#9ca3af', fontSize: '0.78rem' }}>Sender and recipient are the same person</div>
+                                </div>
+                            </label>
+
+                            {!form.same_person && (
+                                <>
+                                    <div><label style={lbl}>Recipient Name *</label><input style={inp} name="recipient_name" value={form.recipient_name} onChange={handleChange} placeholder="Who receives the package?" /></div>
+                                    <div><label style={lbl}>Recipient Phone *</label><input style={inp} name="recipient_phone" value={form.recipient_phone} onChange={handleChange} placeholder="0XX XXX XXXX" /></div>
+                                </>
+                            )}
+
+                            {/* Who pays */}
+                            <div>
+                                <label style={{ ...lbl, marginBottom: '0.65rem' }}>Who pays on delivery? *</label>
+                                <div style={{ display: 'flex', gap: '0.65rem' }}>
+                                    {[
+                                        { value: 'booker', label: `Sender (${form.booker_name || 'You'})`, icon: '👤' },
+                                        { value: 'recipient', label: `Recipient (${form.same_person ? form.booker_name || 'You' : form.recipient_name || 'Recipient'})`, icon: '📦' },
+                                    ].map(opt => (
+                                        <label key={opt.value} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', padding: '0.85rem 0.5rem', border: `2px solid ${form.paying_party === opt.value ? '#f97316' : '#e2e8f0'}`, borderRadius: '10px', cursor: 'pointer', background: form.paying_party === opt.value ? '#fff7ed' : 'white', textAlign: 'center' }}>
+                                            <input type="radio" name="paying_party" value={opt.value} checked={form.paying_party === opt.value} onChange={handleChange} style={{ display: 'none' }} />
+                                            <span style={{ fontSize: '1.35rem' }}>{opt.icon}</span>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: form.paying_party === opt.value ? '#c2410c' : '#6b7280', lineHeight: 1.3 }}>{opt.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                                    A payment link will be sent to {form.paying_party === 'recipient' ? `${form.same_person ? form.booker_name || 'you' : form.recipient_name || 'the recipient'}` : `${form.booker_name || 'you'}`} upon delivery.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STEP 3 — DELIVERY */}
+                    {step === 3 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
                                 <label style={lbl}>Pickup Address *</label>
-                                <input
-                                    ref={pickupRef}
-                                    style={inp}
-                                    name="pickup_address"
-                                    value={form.pickup_address}
-                                    onChange={handleChange}
-                                    placeholder="Start typing pickup address..."
-                                    autoComplete="off"
-                                />
-                                <p style={{ color: '#9ca3af', fontSize: '0.72rem', marginTop: '0.3rem' }}>
-                                    {mapsReady ? '💡 Google Maps suggestions enabled' : '📍 Type your pickup address'}
-                                </p>
+                                <input ref={pickupRef} style={inp} name="pickup_address" value={form.pickup_address} onChange={handleChange} placeholder="Start typing pickup address..." autoComplete="off" />
+                                {mapsReady && <p style={{ color: '#9ca3af', fontSize: '0.72rem', marginTop: '0.3rem' }}>💡 Google Maps suggestions enabled</p>}
                             </div>
                             <div>
                                 <label style={lbl}>Delivery Address *</label>
-                                <input
-                                    ref={deliveryRef}
-                                    style={inp}
-                                    name="delivery_address"
-                                    value={form.delivery_address}
-                                    onChange={handleChange}
-                                    placeholder="Start typing delivery address..."
-                                    autoComplete="off"
-                                />
+                                <input ref={deliveryRef} style={inp} name="delivery_address" value={form.delivery_address} onChange={handleChange} placeholder="Start typing delivery address..." autoComplete="off" />
                             </div>
 
                             {calculatingDistance && (
@@ -399,7 +399,7 @@ export default function BookDeliveryPage() {
                                 </div>
                             )}
                             {distanceKm && !calculatingDistance && (
-                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#15803d' }}>
                                     📍 Distance: <strong>{distanceText}</strong>
                                 </div>
                             )}
@@ -408,80 +408,84 @@ export default function BookDeliveryPage() {
                                 <div><label style={lbl}>Pickup Date *</label><input style={inp} name="pickup_date" type="date" value={form.pickup_date} onChange={handleChange} min={new Date().toISOString().split('T')[0]} /></div>
                                 <div><label style={lbl}>Pickup Time *</label><input style={inp} name="pickup_time" type="time" value={form.pickup_time} onChange={handleChange} /></div>
                             </div>
-                            <div>
-                                <label style={lbl}>Package Weight *</label>
-                                <select style={{ ...inp, appearance: 'none' as const }} name="weight_band" value={form.weight_band} onChange={handleChange}>
-                                    <option value="">Select weight range</option>
-                                    <option value="under">Up to 5kg — No extra charge</option>
-                                    <option value="over">{`Over 5kg — +GHS ${WEIGHT_SURCHARGE}`}</option>
-                                </select>
-                            </div>
+                            <div><label style={lbl}>Package Weight (kg)</label><input style={inp} name="weight_kg" type="number" min="0" step="0.1" value={form.weight_kg} onChange={handleChange} placeholder="Estimated weight" /></div>
                             <div><label style={lbl}>Package Description (optional)</label><textarea style={{ ...inp, minHeight: '70px', resize: 'vertical' as const }} name="package_description" value={form.package_description} onChange={handleChange} placeholder="e.g. 2 boxes of clothing, 1 laptop..." /></div>
 
                             {distanceKm && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
-                                    <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Delivery fee breakdown</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                        <span style={{ color: '#374151' }}>Base fee (covers first {INCLUDED_KM}km)</span>
-                                        <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE}</span>
-                                    </div>
-                                    {km > INCLUDED_KM && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                            <span style={{ color: '#374151' }}>Extra distance ({km - INCLUDED_KM}km × GHS {PER_KM_OVER})</span>
-                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((km - INCLUDED_KM) * PER_KM_OVER)}</span>
-                                        </div>
-                                    )}
-                                    {isOverweight && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                                            <span style={{ color: '#374151' }}>Weight surcharge (over 5kg)</span>
-                                            <span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {WEIGHT_SURCHARGE}</span>
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 800, borderTop: '1px solid #e5e7eb', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
-                                        <span style={{ color: '#1a2456' }}>Total</span>
-                                        <span style={{ color: '#f97316' }}>GHS {deliveryFee}</span>
-                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Estimated delivery fee</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Base fee</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE}</span></div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Distance ({distanceText})</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {km * PER_KM}</span></div>
+                                    {weight > WEIGHT_THRESHOLD && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Weight surcharge</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((weight - WEIGHT_THRESHOLD) * PER_KG_OVER)}</span></div>}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 800, borderTop: '1px solid #e5e7eb', paddingTop: '0.5rem', marginTop: '0.25rem' }}><span style={{ color: '#1a2456' }}>Estimated Total</span><span style={{ color: '#f97316' }}>GHS {deliveryFee}</span></div>
+                                    <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.5rem', marginBottom: 0 }}>Payable on delivery by <strong>{payingName}</strong></p>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {/* STEP 3 */}
-                    {step === 3 && (
+                    {/* STEP 4 — CONFIRM */}
+                    {step === 4 && (
                         <div>
                             <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
                                 <h3 style={{ color: '#1a2456', fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.9rem' }}>Booking Summary</h3>
+
+                                <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Sender</div>
+                                {[['Name', form.booker_name], ['Phone', form.booker_phone]].map(([k, v]) => (
+                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.32rem 0', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500 }}>{v}</span>
+                                    </div>
+                                ))}
+
+                                <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0.75rem 0 0.5rem' }}>Recipient</div>
+                                {[
+                                    ['Name', form.same_person ? form.booker_name : form.recipient_name],
+                                    ['Phone', form.same_person ? form.booker_phone : form.recipient_phone],
+                                    ['Paying', payingName],
+                                ].map(([k, v]) => (
+                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.32rem 0', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500 }}>{v}</span>
+                                    </div>
+                                ))}
+
+                                <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0.75rem 0 0.5rem' }}>Delivery</div>
                                 {([
-                                    ['Name', form.name], ['Phone', form.phone], ['Email', form.email],
-                                    ['Pickup From', form.pickup_address], ['Deliver To', form.delivery_address],
-                                    ['Distance', distanceText], ['Pickup Date', form.pickup_date],
-                                    ['Pickup Time', form.pickup_time], ['Weight', isOverweight ? 'Over 5kg' : 'Up to 5kg'],
-                                    ['Notifications', form.notification_preference === 'both' ? 'Email & WhatsApp' : form.notification_preference === 'email' ? 'Email' : 'WhatsApp'],
+                                    ['Pickup', form.pickup_address],
+                                    ['Delivery', form.delivery_address],
+                                    ['Distance', distanceText],
+                                    ['Date', form.pickup_date],
+                                    ['Time', form.pickup_time],
+                                    ['Weight', `${weight}kg`],
+                                    ['Notifications', form.notification_preference === 'both' ? 'WhatsApp & SMS' : form.notification_preference === 'whatsapp' ? 'WhatsApp' : 'SMS'],
                                     form.package_description ? ['Package', form.package_description] : null,
                                 ] as [string, string][]).filter(Boolean).map(([k, v]) => (
-                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.38rem 0', borderBottom: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
+                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.32rem 0', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}>
                                         <span style={{ color: '#666', flexShrink: 0, marginRight: '1rem' }}>{k}</span>
                                         <span style={{ color: '#1a2456', fontWeight: 500, textAlign: 'right' }}>{v}</span>
                                     </div>
                                 ))}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0 0', fontSize: '1.1rem', fontWeight: 800 }}>
-                                    <span style={{ color: '#1a2456' }}>Delivery Fee</span>
-                                    <span style={{ color: '#f97316' }}>GHS {deliveryFee}</span>
-                                </div>
+
+                                {deliveryFee > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0 0', fontSize: '1.1rem', fontWeight: 800 }}>
+                                        <span style={{ color: '#1a2456' }}>Estimated Fee</span>
+                                        <span style={{ color: '#f97316' }}>GHS {deliveryFee}</span>
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                                Payment secured by Paystack — MoMo, Visa & Mastercard accepted
+
+                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.85rem', color: '#15803d' }}>
+                                💰 <strong>Pay on delivery</strong> — {payingName} will receive a payment link when delivered
                             </div>
-                            <button onClick={initPaystack} disabled={loading} style={{ width: '100%', background: loading ? '#ccc' : '#f97316', color: 'white', border: 'none', padding: '1rem', borderRadius: '10px', fontSize: '1rem', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                                {loading ? 'Processing...' : `Pay GHS ${deliveryFee} & Confirm Delivery`}
+
+                            <button onClick={confirmBooking} disabled={loading} style={{ width: '100%', background: loading ? '#ccc' : '#f97316', color: 'white', border: 'none', padding: '1rem', borderRadius: '10px', fontSize: '1rem', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                                {loading ? 'Confirming...' : 'Confirm Delivery Booking'}
                             </button>
                         </div>
                     )}
 
                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
                         {step > 1 && <button onClick={() => { setStep(step - 1); setError(''); }} style={{ flex: 1, padding: '0.85rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', background: 'white', color: '#374151', fontWeight: 600, cursor: 'pointer', fontSize: '0.92rem', fontFamily: 'inherit' }}>← Back</button>}
-                        {step < 3 && <button onClick={nextStep} style={{ flex: 1, padding: '0.85rem', background: '#1a2456', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.92rem', fontFamily: 'inherit' }}>Continue →</button>}
+                        {step < 4 && <button onClick={nextStep} style={{ flex: 1, padding: '0.85rem', background: '#1a2456', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.92rem', fontFamily: 'inherit' }}>Continue →</button>}
                     </div>
                 </div>
 

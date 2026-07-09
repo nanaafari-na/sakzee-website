@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyClientOrderStatus } from '@/lib/notifications';
+import { notifyDeliveryStatus, notifyClientOrderStatus } from '@/lib/notifications';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
         );
         const assignments = await res.json();
 
-        // Fetch booking details for each assignment
         const enriched = await Promise.all(assignments.map(async (a: any) => {
             const bookingRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(a.booking_id)}&select=*`,
@@ -47,7 +46,6 @@ export async function PATCH(req: NextRequest) {
         if (status === 'picked_up') updateBody.picked_up_at = new Date().toISOString();
         if (status === 'delivered') updateBody.delivered_at = new Date().toISOString();
 
-        // Update assignment
         const res = await fetch(`${SUPABASE_URL}/rest/v1/delivery_assignments?id=eq.${id}`, {
             method: 'PATCH',
             headers: { ...headers, 'Prefer': 'return=representation' },
@@ -56,40 +54,42 @@ export async function PATCH(req: NextRequest) {
         const assignments = await res.json();
         const assignment = assignments?.[0];
 
-        // Update booking status
         if (assignment?.booking_id) {
             const bookingStatus = status === 'picked_up' ? 'Shipped' : status === 'delivered' ? 'Delivered' : null;
             if (bookingStatus) {
                 await fetch(
                     `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}`,
-                    {
-                        method: 'PATCH',
-                        headers: { ...headers, 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ status: bookingStatus }),
-                    }
+                    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ status: bookingStatus }) }
                 );
 
-                // Notify client
                 const bookingRes = await fetch(
                     `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}&select=*`,
                     { headers }
                 );
                 const bookings = await bookingRes.json();
-                const booking = bookings?.[0];
-                if (booking) {
-                    await notifyClientOrderStatus(
-                        {
-                            email: booking.email,
-                            name: booking.name,
-                            phone: booking.phone,
-                            notification_preference: booking.notification_preference || 'both',
-                        },
-                        {
-                            reference: booking.reference,
+                const b = bookings?.[0];
+
+                if (b) {
+                    const pref = b.notification_preference || 'both';
+                    if (b.booking_type === 'delivery' && b.recipient_phone) {
+                        await notifyDeliveryStatus({
+                            reference: b.reference,
+                            booker_name: b.name,
+                            booker_phone: b.phone,
+                            recipient_name: b.recipient_name || b.name,
+                            recipient_phone: b.recipient_phone || b.phone,
                             status: bookingStatus,
-                            service: 'Delivery',
-                        }
-                    );
+                            delivery_fee: b.delivery_fee || 0,
+                            paying_party: b.paying_party || 'booker',
+                            notification_preference: pref,
+                            same_person: b.recipient_phone === b.phone,
+                        });
+                    } else {
+                        await notifyClientOrderStatus(
+                            { phone: b.phone, name: b.name, notification_preference: pref },
+                            { reference: b.reference, status: bookingStatus, service: 'Delivery', delivery_fee: b.delivery_fee }
+                        );
+                    }
                 }
             }
         }

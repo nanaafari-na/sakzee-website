@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyClientOrderStatus } from '@/lib/notifications';
+import { notifyDeliveryStatus, notifyClientOrderStatus } from '@/lib/notifications';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -12,7 +12,7 @@ const headers = {
 export async function GET() {
     try {
         const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/bookings?select=*&order=paid_at.desc`,
+            `${SUPABASE_URL}/rest/v1/bookings?select=*&order=created_at.desc`,
             { headers }
         );
         const data = await res.json();
@@ -24,40 +24,56 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
     try {
-        const { reference, status } = await req.json();
+        const body = await req.json();
+        const { reference, status, payment_status } = body;
 
-        // Update status
+        const updateBody: any = {};
+        if (status) updateBody.status = status;
+        if (payment_status) updateBody.payment_status = payment_status;
+        if (payment_status === 'paid') updateBody.paid_at = new Date().toISOString();
+
         const res = await fetch(
             `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(reference)}`,
             {
                 method: 'PATCH',
                 headers: { ...headers, 'Prefer': 'return=minimal' },
-                body: JSON.stringify({ status }),
+                body: JSON.stringify(updateBody),
             }
         );
-        if (!res.ok) throw new Error('Failed to update booking status');
+        if (!res.ok) throw new Error('Failed to update booking');
 
-        // Get booking to notify client
-        const bookingRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(reference)}&select=*`,
-            { headers }
-        );
-        const bookings = await bookingRes.json();
-
-        if (bookings?.[0]) {
-            const b = bookings[0];
-            const pref = b.notification_preference || 'both';
-
-            await notifyClientOrderStatus(
-                { email: b.email, name: b.name, phone: b.phone, notification_preference: pref },
-                {
-                    reference: b.reference,
-                    status,
-                    service: b.booking_type === 'delivery'
-                        ? `Delivery — ${b.pickup_address} → ${b.delivery_address}`
-                        : b.service,
-                }
+        // Get full booking to notify
+        if (status) {
+            const bookingRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(reference)}&select=*`,
+                { headers }
             );
+            const bookings = await bookingRes.json();
+            const b = bookings?.[0];
+
+            if (b) {
+                const pref = b.notification_preference || 'both';
+
+                if (b.booking_type === 'delivery' && b.recipient_phone) {
+                    await notifyDeliveryStatus({
+                        reference: b.reference,
+                        booker_name: b.name,
+                        booker_phone: b.phone,
+                        recipient_name: b.recipient_name || b.name,
+                        recipient_phone: b.recipient_phone || b.phone,
+                        status,
+                        delivery_fee: b.delivery_fee || 0,
+                        paying_party: b.paying_party || 'booker',
+                        notification_preference: pref,
+                        same_person: b.recipient_phone === b.phone,
+                    });
+                } else {
+                    await notifyClientOrderStatus(
+                        { phone: b.phone, name: b.name, notification_preference: pref },
+                        { reference: b.reference, status, service: b.service, delivery_fee: b.delivery_fee }
+                    );
+                }
+            }
         }
 
         return NextResponse.json({ success: true });
