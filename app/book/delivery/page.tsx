@@ -4,13 +4,14 @@ import Link from 'next/link';
 
 declare global { interface Window { google: any; initGoogleMaps: () => void; } }
 
-const BASE_FEE = 35;
-const PER_KM = 2;
-const WEIGHT_THRESHOLD = 5;
-const PER_KG_OVER = 3;
+const BASE_FEE = 25;
+const BASE_KM = 10;
+const PER_KM = 1.5;
+const WEIGHT_SURCHARGE = 10;
 
-function calcFee(km: number, weight: number) {
-    return Math.round((BASE_FEE + km * PER_KM) + (weight > WEIGHT_THRESHOLD ? (weight - WEIGHT_THRESHOLD) * PER_KG_OVER : 0));
+function calcFee(km: number, overWeight: boolean) {
+    const distFee = BASE_FEE + (km > BASE_KM ? (km - BASE_KM) * PER_KM : 0);
+    return Math.round(distFee + (overWeight ? WEIGHT_SURCHARGE : 0));
 }
 
 type Pref = 'whatsapp' | 'sms' | 'both';
@@ -24,7 +25,7 @@ export default function BookDeliveryPage() {
         recipient_name: '', recipient_phone: '',
         paying_party: 'booker' as 'booker' | 'recipient',
         pickup_address: '', delivery_address: '',
-        weight_kg: '', package_description: '',
+        weight_kg: 'under' as 'under' | 'over', package_description: '',
         pickup_date: '', pickup_time: '',
     });
     const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -98,9 +99,9 @@ export default function BookDeliveryPage() {
         });
     }
 
-    const weight = Number(form.weight_kg) || 0;
+    const overWeight = form.weight_kg === 'over';
     const km = distanceKm || 0;
-    const deliveryFee = km > 0 ? calcFee(km, weight) : 0;
+    const deliveryFee = km > 0 ? calcFee(km, overWeight) : 0;
     const payingName = form.paying_party === 'recipient' ? (form.recipient_name || 'Recipient') : form.booker_name;
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
@@ -146,6 +147,7 @@ export default function BookDeliveryPage() {
                     date: form.pickup_date,
                     pickup_address: form.pickup_address,
                     delivery_address: form.delivery_address,
+                    weight_kg: overWeight ? 6 : 0,
                     package_description: form.package_description,
                     pickup_time: form.pickup_time,
                     booking_type: 'delivery',
@@ -185,7 +187,7 @@ Pickup: ${form.pickup_address}
 Delivery: ${form.delivery_address}
 Date: ${form.pickup_date}
 Time: ${form.pickup_time}
-Weight: ${weight}kg
+Weight: ${overWeight ? 'Over 5kg (+GHS 10 surcharge)' : 'Under 5kg'}
 Distance: ${distanceText}
 ${form.package_description ? `Package: ${form.package_description}` : ''}
 
@@ -408,15 +410,21 @@ Moving Dreams, Delivering Growth
                                 <div><label style={lbl}>Pickup Date *</label><input style={inp} name="pickup_date" type="date" value={form.pickup_date} onChange={handleChange} min={new Date().toISOString().split('T')[0]} /></div>
                                 <div><label style={lbl}>Pickup Time *</label><input style={inp} name="pickup_time" type="time" value={form.pickup_time} onChange={handleChange} /></div>
                             </div>
-                            <div><label style={lbl}>Package Weight (kg)</label><input style={inp} name="weight_kg" type="number" min="0" step="0.1" value={form.weight_kg} onChange={handleChange} placeholder="Estimated weight" /></div>
+                            <div>
+                                <label style={lbl}>Package Weight</label>
+                                <select style={{ ...inp, appearance: 'none' as const }} name="weight_kg" value={form.weight_kg} onChange={handleChange}>
+                                    <option value="under">Under 5kg</option>
+                                    <option value="over">Over 5kg (+GHS 10 surcharge)</option>
+                                </select>
+                            </div>
                             <div><label style={lbl}>Package Description (optional)</label><textarea style={{ ...inp, minHeight: '70px', resize: 'vertical' as const }} name="package_description" value={form.package_description} onChange={handleChange} placeholder="e.g. 2 boxes of clothing, 1 laptop..." /></div>
 
                             {distanceKm && (
                                 <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
                                     <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Estimated delivery fee</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Base fee</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE}</span></div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Distance ({distanceText})</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {km * PER_KM}</span></div>
-                                    {weight > WEIGHT_THRESHOLD && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Weight surcharge</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((weight - WEIGHT_THRESHOLD) * PER_KG_OVER)}</span></div>}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Base fee (first 10km)</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {BASE_FEE}</span></div>
+                                    {km > BASE_KM && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Extra distance ({km - BASE_KM}km × GHS {PER_KM})</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {Math.round((km - BASE_KM) * PER_KM)}</span></div>}
+                                    {overWeight && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}><span style={{ color: '#374151' }}>Weight surcharge (over 5kg)</span><span style={{ color: '#1a2456', fontWeight: 600 }}>GHS {WEIGHT_SURCHARGE}</span></div>}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 800, borderTop: '1px solid #e5e7eb', paddingTop: '0.5rem', marginTop: '0.25rem' }}><span style={{ color: '#1a2456' }}>Estimated Total</span><span style={{ color: '#f97316' }}>GHS {deliveryFee}</span></div>
                                     <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.5rem', marginBottom: 0 }}>Payable on delivery by <strong>{payingName}</strong></p>
                                 </div>
@@ -455,7 +463,7 @@ Moving Dreams, Delivering Growth
                                     ['Distance', distanceText],
                                     ['Date', form.pickup_date],
                                     ['Time', form.pickup_time],
-                                    ['Weight', `${weight}kg`],
+                                    ['Weight', overWeight ? 'Over 5kg' : 'Under 5kg'],
                                     ['Notifications', form.notification_preference === 'both' ? 'WhatsApp & SMS' : form.notification_preference === 'whatsapp' ? 'WhatsApp' : 'SMS'],
                                     form.package_description ? ['Package', form.package_description] : null,
                                 ] as [string, string][]).filter(Boolean).map(([k, v]) => (
