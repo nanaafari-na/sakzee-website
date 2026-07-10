@@ -57,7 +57,6 @@ export async function PATCH(req: NextRequest) {
             if (vendor) {
                 await notifyVendorOrderStatus(
                     {
-                        email: vendor.email,
                         contact_name: vendor.contact_name,
                         phone: vendor.phone,
                         notification_preference: vendor.notification_preference || 'both',
