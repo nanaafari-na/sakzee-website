@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest) {
             const pref = vendor.notification_preference || 'both';
             if (status === 'active') {
                 await notifyVendorApproved({
-
+                    business_name: vendor.business_name,
                     contact_name: vendor.contact_name,
                     phone: vendor.phone,
                     notification_preference: pref,
@@ -59,6 +59,7 @@ export async function PATCH(req: NextRequest) {
             } else if (status === 'suspended') {
                 await notifyVendorSuspended({
 
+                    business_name: vendor.business_name,
                     contact_name: vendor.contact_name,
                     phone: vendor.phone,
                     suspension_reason: suspension_reason || 'Policy violation',
