@@ -164,58 +164,139 @@ export default function BookDeliveryPage() {
         setLoading(false);
     }
 
-    function downloadReceipt() {
-        const content = `
-SAKZEE DELIVERY RECEIPT
-=======================
-Reference: ${reference}
-Date: ${new Date().toLocaleDateString('en-GH', { day: 'numeric', month: 'long', year: 'numeric' })}
+    async function downloadReceipt() {
+        const { jsPDF } = await import('jspdf');
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-SENDER
-------
-Name: ${form.booker_name}
-Phone: ${form.booker_phone}
+        const navy = [26, 36, 86] as [number, number, number];
+        const orange = [249, 115, 22] as [number, number, number];
+        const gray = [107, 114, 128] as [number, number, number];
 
-RECIPIENT
----------
-Name: ${form.same_person ? form.booker_name : form.recipient_name}
-Phone: ${form.same_person ? form.booker_phone : form.recipient_phone}
+        // Header background
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, 210, 38, 'F');
 
-DELIVERY DETAILS
-----------------
-Pickup: ${form.pickup_address}
-Delivery: ${form.delivery_address}
-Date: ${form.pickup_date}
-Time: ${form.pickup_time}
-Weight: ${overWeight ? 'Over 5kg (+GHS 10 surcharge)' : 'Under 5kg'}
-Distance: ${distanceText}
-${form.package_description ? `Package: ${form.package_description}` : ''}
+        // Logo
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text('sak', 15, 18);
+        doc.setTextColor(...orange);
+        doc.text('zee', 30, 18);
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Moving Dreams, Delivering Growth', 15, 25);
 
-PAYMENT
--------
-Estimated Fee: GHS ${deliveryFee}
-Payment by: ${payingName}
-Payment mode: Pay on delivery
+        // Title
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DELIVERY RECEIPT', 210 - 15, 18, { align: 'right' });
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Date: ${new Date().toLocaleDateString('en-GH', { day: 'numeric', month: 'long', year: 'numeric' })}`, 210 - 15, 25, { align: 'right' });
 
-TRACKING
---------
-Track your delivery at: sakzee.com/track
-Use reference: ${reference}
+        // Reference box
+        doc.setFillColor(248, 249, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(15, 44, 180, 16, 3, 3, 'FD');
+        doc.setTextColor(...gray);
+        doc.setFontSize(8);
+        doc.text('TRACKING REFERENCE', 105, 50, { align: 'center' });
+        doc.setTextColor(...navy);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(reference, 105, 57, { align: 'center' });
 
-=======================
-Sakzee Company Limited
-Ubuntu Court Estate, Oyarifa, Accra
-0256 089 599 | info@sakzee.com
-Moving Dreams, Delivering Growth
-    `.trim();
+        let y = 72;
 
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Sakzee-Receipt-${reference}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+        function sectionHeader(title: string) {
+            doc.setFillColor(...navy);
+            doc.rect(15, y - 5, 180, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title, 18, y);
+            y += 8;
+        }
+
+        function row(label: string, value: string) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...gray);
+            doc.text(label, 18, y);
+            doc.setTextColor(...navy);
+            doc.setFont('helvetica', 'bold');
+            const lines = doc.splitTextToSize(value, 100);
+            doc.text(lines, 210 - 18, y, { align: 'right' });
+            doc.setDrawColor(243, 244, 246);
+            doc.line(15, y + 2, 195, y + 2);
+            y += 8 * lines.length;
+        }
+
+        // Sender
+        sectionHeader('SENDER');
+        row('Name', form.booker_name);
+        row('Phone', form.booker_phone);
+        y += 4;
+
+        // Recipient
+        sectionHeader('RECIPIENT');
+        row('Name', form.same_person ? form.booker_name : form.recipient_name);
+        row('Phone', form.same_person ? form.booker_phone : form.recipient_phone);
+        row('Paying party', payingName);
+        y += 4;
+
+        // Delivery
+        sectionHeader('DELIVERY DETAILS');
+        row('Pickup address', form.pickup_address);
+        row('Delivery address', form.delivery_address);
+        row('Distance', distanceText);
+        row('Pickup date', form.pickup_date);
+        row('Pickup time', form.pickup_time);
+        row('Package weight', overWeight ? 'Over 5kg' : 'Under 5kg');
+        if (form.package_description) row('Description', form.package_description);
+        row('Notifications', form.notification_preference === 'both' ? 'WhatsApp & SMS' : form.notification_preference);
+        y += 4;
+
+        // Payment
+        sectionHeader('PAYMENT');
+        row('Estimated fee', `GHS ${deliveryFee}`);
+        row('Payment mode', 'Pay on delivery');
+        row('Payment by', payingName);
+        y += 4;
+
+        // Fee box
+        doc.setFillColor(255, 247, 237);
+        doc.setDrawColor(...orange);
+        doc.roundedRect(15, y, 180, 18, 3, 3, 'FD');
+        doc.setTextColor(...gray);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Total Estimated Fee', 20, y + 7);
+        doc.setTextColor(...orange);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`GHS ${deliveryFee}`, 190, y + 11, { align: 'right' });
+        doc.setTextColor(...gray);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Payable on delivery by ${payingName}`, 20, y + 14);
+        y += 26;
+
+        // Footer
+        doc.setFillColor(...navy);
+        doc.rect(0, 280, 210, 17, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Sakzee Company Limited', 105, 287, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(200, 210, 230);
+        doc.text('Ubuntu Court Estate, Oyarifa, Accra  •  0256 089 599  •  info@sakzee.com  •  sakzee.com', 105, 293, { align: 'center' });
+
+        doc.save(`Sakzee-Receipt-${reference}.pdf`);
     }
 
     const inp: React.CSSProperties = { width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a2456', background: 'white' };
