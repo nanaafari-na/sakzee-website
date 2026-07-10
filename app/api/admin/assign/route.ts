@@ -69,7 +69,6 @@ export async function POST(req: NextRequest) {
         if (booking) {
             await notifyClientOrderStatus(
                 {
-                    email: booking.email,
                     name: booking.name,
                     phone: booking.phone,
                     notification_preference: booking.notification_preference || 'both',
