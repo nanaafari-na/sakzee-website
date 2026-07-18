@@ -143,6 +143,7 @@ export default function AdminPage() {
         setCheckingIn(null);
     }
 
+    const newBookings = bookings.filter(b => b.status === 'Received');
     const pendingVendors = vendors.filter(v => v.status === 'pending');
     const pendingCheckins = products.filter(p => p.checkin_status === 'pending_checkin');
     const pendingOrders = vendorOrders.filter(o => o.status === 'Pending');
@@ -190,7 +191,7 @@ export default function AdminPage() {
             <nav style={{ background: '#1a2456', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ color: 'white', fontSize: '1.3rem', fontWeight: 800 }}>sak<span style={{ color: '#f97316' }}>zee</span> <span style={{ fontSize: '0.85rem', fontWeight: 400, opacity: 0.6 }}>Admin</span></div>
                 <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.25rem', flexWrap: 'wrap' }}>
-                    <NavTab id="bookings" label="Client Bookings" />
+                    <NavTab id="bookings" label="Client Bookings" count={newBookings.length} />
                     <NavTab id="orders" label="Vendor Orders" count={pendingOrders.length} />
                     <NavTab id="vendors" label="Vendors" count={pendingVendors.length} />
                     <NavTab id="inventory" label="Inventory" count={pendingCheckins.length} />
@@ -409,7 +410,7 @@ export default function AdminPage() {
                                 ['Address', selectedOrder.delivery_address],
                                 ['Region', selectedOrder.region],
                                 ['Distance', `${selectedOrder.distance_km} km`],
-                                ['Weight', selectedOrder.weight_kg > 5 ? 'Over 5kg' : 'Up to 5kg'],
+                                ['Weight', `${selectedOrder.weight_kg} kg`],
                                 ['Delivery Fee', `GHS ${selectedOrder.delivery_fee}`],
                                 ['Payment', selectedOrder.payment_status === 'paid' ? '✅ Paid' : '❌ Unpaid'],
                             ] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
