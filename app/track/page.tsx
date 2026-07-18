@@ -118,12 +118,15 @@ export default function TrackPage() {
             currency: 'GHS',
             ref: `PAY-${booking.reference}-${Date.now()}`,
             callback: async (response: any) => {
+                console.log('Paystack callback fired:', response);
                 try {
-                    await fetch('/api/admin/bookings', {
+                    const res = await fetch('/api/admin/bookings', {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ reference: booking.reference, status: booking.status, payment_status: 'paid' }),
                     });
+                    const data = await res.json();
+                    console.log('Payment update response:', res.status, data);
                     setPaid(true);
                     setShowPayment(false);
                 } catch (e) {
