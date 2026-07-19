@@ -2,12 +2,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const BOOKING_STATUS = ['Received', 'Processing', 'Packed', 'Shipped', 'Delivered'];
+const BOOKING_STATUS = ['Received', 'Processing', 'Packed', 'Shipped', 'Delivered', 'Failed', 'Returning', 'Returned'];
 const ORDER_STATUS = ['Pending', 'Processing', 'Packed', 'Shipped', 'Delivered'];
 const STATUS_STEPS = ['Pending', 'Processing', 'Packed', 'Shipped', 'Delivered'];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
     Received: { bg: '#eff6ff', color: '#1d4ed8' },
+    Failed: { bg: '#fef2f2', color: '#dc2626' },
+    Returning: { bg: '#fff7ed', color: '#c2410c' },
+    Returned: { bg: '#f8f9ff', color: '#6b7280' },
     Pending: { bg: '#eff6ff', color: '#1d4ed8' },
     Processing: { bg: '#fff7ed', color: '#c2410c' },
     Packed: { bg: '#f5f3ff', color: '#6d28d9' },
@@ -143,7 +146,7 @@ export default function AdminPage() {
         setCheckingIn(null);
     }
 
-    const newBookings = bookings.filter(b => b.status === 'Received');
+    const newBookings = bookings.filter(b => b.status === 'Received' || b.status === 'Failed');
     const pendingVendors = vendors.filter(v => v.status === 'pending');
     const pendingCheckins = products.filter(p => p.checkin_status === 'pending_checkin');
     const pendingOrders = vendorOrders.filter(o => o.status === 'Pending');
@@ -360,6 +363,14 @@ export default function AdminPage() {
                                     <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500, maxWidth: '260px', textAlign: 'right' }}>{v}</span>
                                 </div>
                             ))}
+                            {selectedBooking.status === 'Failed' && (
+                                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '1rem', margin: '0.75rem 0' }}>
+                                    <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: '0.5rem' }}>⚠️ Failed Delivery</div>
+                                    <div style={{ fontSize: '0.85rem', color: '#374151' }}><strong>Reason:</strong> {(selectedBooking as any).failure_reason}</div>
+                                    {(selectedBooking as any).failure_notes && <div style={{ fontSize: '0.85rem', color: '#374151', marginTop: '0.25rem' }}><strong>Notes:</strong> {(selectedBooking as any).failure_notes}</div>}
+                                    {(selectedBooking as any).return_fee > 0 && <div style={{ fontSize: '0.85rem', color: '#dc2626', marginTop: '0.5rem', fontWeight: 700 }}>Return fee: GHS {(selectedBooking as any).return_fee} · Total due: GHS {((selectedBooking as any).delivery_fee || 0) + ((selectedBooking as any).return_fee || 0)}</div>}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label style={{ display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' }}>Update Status</label>

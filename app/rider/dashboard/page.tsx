@@ -9,6 +9,8 @@ type Assignment = {
     assigned_at: string;
     picked_up_at: string | null;
     delivered_at: string | null;
+    failure_reason?: string;
+    failure_notes?: string;
     booking: {
         name: string;
         phone: string;
@@ -26,10 +28,13 @@ export default function RiderDashboard() {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [activeJob, setActiveJob] = useState<Assignment | null>(null);
     const [trackingActive, setTrackingActive] = useState(false);
     const [locationStatus, setLocationStatus] = useState('');
     const [error, setError] = useState('');
+    const [reportingIssue, setReportingIssue] = useState<string | null>(null);
+    const [issueReason, setIssueReason] = useState('');
+    const [issueNotes, setIssueNotes] = useState('');
+    const [reportingLoading, setReportingLoading] = useState(false);
     const locationInterval = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
@@ -48,7 +53,7 @@ export default function RiderDashboard() {
             const data = await res.json();
             setAssignments(Array.isArray(data) ? data : []);
             const active = data?.find((a: Assignment) => ['assigned', 'picked_up'].includes(a.status));
-            if (active) setActiveJob(active);
+
         } catch { }
         setLoading(false);
     }
@@ -104,6 +109,32 @@ export default function RiderDashboard() {
         } catch (e: any) {
             setError(e.message);
         }
+    }
+
+    async function reportIssue(assignmentId: string) {
+        if (!issueReason) { setError('Please select a reason.'); return; }
+        setReportingLoading(true);
+        const riderId = localStorage.getItem('rider_id');
+        try {
+            await fetch(`/api/rider/assignments?id=${assignmentId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'failed',
+                    rider_id: riderId,
+                    failure_reason: issueReason,
+                    failure_notes: issueNotes,
+                }),
+            });
+            stopTracking();
+            setReportingIssue(null);
+            setIssueReason('');
+            setIssueNotes('');
+            await loadAssignments(riderId!);
+        } catch (e: any) {
+            setError(e.message);
+        }
+        setReportingLoading(false);
     }
 
     async function uploadProof(assignmentId: string, file: File) {
@@ -291,6 +322,12 @@ export default function RiderDashboard() {
                                     >
                                         {uploading ? 'Uploading...' : '📸 Upload Proof & Mark Delivered'}
                                     </button>
+                                    <button
+                                        onClick={() => setReportingIssue(a.id)}
+                                        style={{ width: '100%', background: 'white', color: '#dc2626', border: '2px solid #fecaca', padding: '0.85rem', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                                    >
+                                        ↩️ Report Issue / Failed Delivery
+                                    </button>
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -326,6 +363,44 @@ export default function RiderDashboard() {
                     </>
                 )}
             </div>
+
+
+            {/* Report Issue Modal */}
+            {reportingIssue && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
+                    <div style={{ background: 'white', borderRadius: '16px', padding: '1.75rem', maxWidth: '400px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                        <h2 style={{ color: '#dc2626', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.25rem' }}>↩️ Report Failed Delivery</h2>
+                        <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1.25rem' }}>Please provide details about why delivery could not be completed.</p>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' }}>Reason *</label>
+                            <select value={issueReason} onChange={e => setIssueReason(e.target.value)} style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.92rem', outline: 'none', fontFamily: 'inherit', color: '#1a2456', background: 'white', appearance: 'none' as const }}>
+                                <option value="">Select a reason</option>
+                                <option value="Recipient not available">Recipient not available</option>
+                                <option value="Wrong address">Wrong address</option>
+                                <option value="Recipient refused package">Recipient refused package</option>
+                                <option value="Unable to locate address">Unable to locate address</option>
+                                <option value="Access denied to location">Access denied to location</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label style={{ display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' }}>Additional Notes (optional)</label>
+                            <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} placeholder="Any additional details..." style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.92rem', outline: 'none', fontFamily: 'inherit', color: '#1a2456', minHeight: '80px', resize: 'vertical' as const, boxSizing: 'border-box' as const }} />
+                        </div>
+                        <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '0.85rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#c2410c' }}>
+                            ⚠️ The sender will be charged the original delivery fee plus a return fee. This action cannot be undone.
+                        </div>
+                        {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.65rem', color: '#dc2626', fontSize: '0.82rem', marginBottom: '1rem' }}>{error}</div>}
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button onClick={() => reportingIssue && reportIssue(reportingIssue)} disabled={reportingLoading} style={{ flex: 1, background: reportingLoading ? '#ccc' : '#dc2626', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '10px', fontWeight: 700, cursor: reportingLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                                {reportingLoading ? 'Reporting...' : 'Confirm Failed Delivery'}
+                            </button>
+                            <button onClick={() => { setReportingIssue(null); setIssueReason(''); setIssueNotes(''); setError(''); }} style={{ flex: 1, background: 'white', color: '#374151', border: '1.5px solid #e2e8f0', padding: '0.9rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
         </div>
     );
 }

@@ -40,12 +40,13 @@ export async function PATCH(req: NextRequest) {
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     try {
-        const { status } = await req.json();
+        const { status, failure_reason, failure_notes } = await req.json();
 
         const updateBody: any = { status };
         if (status === 'picked_up') updateBody.picked_up_at = new Date().toISOString();
         if (status === 'delivered') updateBody.delivered_at = new Date().toISOString();
 
+        // Update assignment
         const res = await fetch(`${SUPABASE_URL}/rest/v1/delivery_assignments?id=eq.${id}`, {
             method: 'PATCH',
             headers: { ...headers, 'Prefer': 'return=representation' },
@@ -55,40 +56,94 @@ export async function PATCH(req: NextRequest) {
         const assignment = assignments?.[0];
 
         if (assignment?.booking_id) {
-            const bookingStatus = status === 'picked_up' ? 'Shipped' : status === 'delivered' ? 'Delivered' : null;
-            if (bookingStatus) {
-                await fetch(
-                    `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}`,
-                    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ status: bookingStatus }) }
-                );
+            // Get booking
+            const bookingRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}&select=*`,
+                { headers }
+            );
+            const bookings = await bookingRes.json();
+            const b = bookings?.[0];
 
-                const bookingRes = await fetch(
-                    `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}&select=*`,
-                    { headers }
-                );
-                const bookings = await bookingRes.json();
-                const b = bookings?.[0];
+            if (b) {
+                const pref = b.notification_preference || 'whatsapp';
 
-                if (b) {
-                    const pref = b.notification_preference || 'both';
-                    if (b.booking_type === 'delivery' && b.recipient_phone) {
-                        await notifyDeliveryStatus({
+                if (status === 'failed') {
+                    // Calculate return fee: max(25, delivery_fee / 2)
+                    const returnFee = Math.max(25, Math.round((b.delivery_fee || 0) / 2));
+                    const totalDue = (b.delivery_fee || 0) + returnFee;
+
+                    // Update booking with failed status, reason, and return fee
+                    await fetch(
+                        `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}`,
+                        {
+                            method: 'PATCH',
+                            headers: { ...headers, 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({
+                                status: 'Failed',
+                                failure_reason: failure_reason || 'Unknown',
+                                failure_notes: failure_notes || '',
+                                return_fee: returnFee,
+                            }),
+                        }
+                    );
+
+                    // Notify booker — they pay original fee + return fee
+                    await notifyClientOrderStatus(
+                        { phone: b.phone, email: b.email, name: b.name, notification_preference: pref },
+                        {
                             reference: b.reference,
-                            booker_name: b.name,
-                            booker_phone: b.phone,
-                            recipient_name: b.recipient_name || b.name,
-                            recipient_phone: b.recipient_phone || b.phone,
-                            status: bookingStatus,
-                            delivery_fee: b.delivery_fee || 0,
-                            paying_party: b.paying_party || 'booker',
-                            notification_preference: pref,
-                            same_person: b.recipient_phone === b.phone,
-                        });
-                    } else {
+                            status: 'Failed',
+                            service: `Delivery failed: ${failure_reason}. Return fee: GHS ${returnFee}. Total due: GHS ${totalDue}`,
+                            delivery_fee: totalDue,
+                        }
+                    );
+
+                    // Notify recipient
+                    if (b.recipient_phone && b.recipient_phone !== b.phone) {
                         await notifyClientOrderStatus(
-                            { phone: b.phone, name: b.name, notification_preference: pref },
-                            { reference: b.reference, status: bookingStatus, service: 'Delivery', delivery_fee: b.delivery_fee }
+                            { phone: b.recipient_phone, name: b.recipient_name || 'Recipient', notification_preference: pref },
+                            {
+                                reference: b.reference,
+                                status: 'Failed',
+                                service: `Delivery could not be completed: ${failure_reason}. Please contact sender.`,
+                            }
                         );
+                    }
+
+                } else {
+                    // Standard status update
+                    const bookingStatus = status === 'picked_up' ? 'Shipped' : status === 'delivered' ? 'Delivered' : null;
+
+                    if (bookingStatus) {
+                        await fetch(
+                            `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}`,
+                            {
+                                method: 'PATCH',
+                                headers: { ...headers, 'Prefer': 'return=minimal' },
+                                body: JSON.stringify({ status: bookingStatus }),
+                            }
+                        );
+
+                        if (b.booking_type === 'delivery' && b.recipient_phone) {
+                            await notifyDeliveryStatus({
+                                reference: b.reference,
+                                booker_name: b.name,
+                                booker_phone: b.phone,
+                                booker_email: b.email,
+                                recipient_name: b.recipient_name || b.name,
+                                recipient_phone: b.recipient_phone || b.phone,
+                                status: bookingStatus,
+                                delivery_fee: b.delivery_fee || 0,
+                                paying_party: b.paying_party || 'booker',
+                                notification_preference: pref,
+                                same_person: b.recipient_phone === b.phone,
+                            });
+                        } else {
+                            await notifyClientOrderStatus(
+                                { phone: b.phone, email: b.email, name: b.name, notification_preference: pref },
+                                { reference: b.reference, status: bookingStatus, service: 'Delivery', delivery_fee: b.delivery_fee }
+                            );
+                        }
                     }
                 }
             }
