@@ -30,6 +30,15 @@ export default function TrackPage() {
             s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&callback=initGoogleMaps`;
             s.async = true; document.head.appendChild(s);
         }
+
+        // Preload Paystack
+        if (!document.querySelector('script[src*="paystack"]')) {
+            const ps = document.createElement('script');
+            ps.src = 'https://js.paystack.co/v1/inline.js';
+            ps.async = true;
+            document.body.appendChild(ps);
+        }
+
         return () => clearInterval(refreshInterval.current);
     }, []);
 
@@ -96,47 +105,58 @@ export default function TrackPage() {
         mapInstance.current.panTo(pos);
     }
 
-    async function payWithPaystack() {
+    function payWithPaystack() {
         if (!booking) return;
         setPaying(true);
 
-        // Ensure Paystack is loaded
-        if (!window.PaystackPop) {
-            await new Promise<void>((resolve) => {
-                const s = document.createElement('script');
-                s.src = 'https://js.paystack.co/v1/inline.js';
-                s.onload = () => resolve();
-                document.body.appendChild(s);
-            });
-        }
-
-        const payingPhone = booking.paying_party === 'recipient' ? booking.recipient_phone : booking.phone;
-        const handler = window.PaystackPop.setup({
-            key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || 'pk_test_6acba43a4893ab00f1a9618f7e84e5a471fe16ac',
-            email: booking.email || `${payingPhone}@sakzee.com`,
-            amount: booking.delivery_fee * 100,
-            currency: 'GHS',
-            ref: `PAY-${booking.reference}-${Date.now()}`,
-            callback: async (response: any) => {
-                console.log('Paystack callback fired:', response);
-                try {
-                    const res = await fetch('/api/admin/bookings', {
+        function doPaystack() {
+            const payingPhone = booking.paying_party === 'recipient' ? booking.recipient_phone : booking.phone;
+            const handler = window.PaystackPop.setup({
+                key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || 'pk_test_6acba43a4893ab00f1a9618f7e84e5a471fe16ac',
+                email: booking.email || `${payingPhone}@sakzee.com`,
+                amount: booking.delivery_fee * 100,
+                currency: 'GHS',
+                ref: `PAY-${booking.reference}-${Date.now()}`,
+                callback: function (response: any) {
+                    console.log('Paystack callback fired:', response);
+                    fetch('/api/admin/bookings', {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ reference: booking.reference, status: booking.status, payment_status: 'paid' }),
-                    });
-                    const data = await res.json();
-                    console.log('Payment update response:', res.status, data);
-                    setPaid(true);
-                    setShowPayment(false);
-                } catch (e) {
-                    console.error('Payment update error:', e);
-                }
-                setPaying(false);
-            },
-            onClose: () => setPaying(false),
-        });
-        handler.openIframe();
+                    })
+                        .then(r => r.json())
+                        .then(data => {
+                            console.log('Payment update response:', data);
+                            setPaid(true);
+                            setShowPayment(false);
+                            setPaying(false);
+                        })
+                        .catch(e => {
+                            console.error('Payment update error:', e);
+                            setPaying(false);
+                        });
+                },
+                onClose: function () {
+                    setPaying(false);
+                },
+            });
+            handler.openIframe();
+        }
+
+        if (window.PaystackPop) {
+            doPaystack();
+        } else {
+            // Wait for already-loading script
+            const existing = document.querySelector('script[src*="paystack"]') as HTMLScriptElement;
+            if (existing) {
+                existing.addEventListener('load', doPaystack);
+            } else {
+                const s = document.createElement('script');
+                s.src = 'https://js.paystack.co/v1/inline.js';
+                s.onload = doPaystack;
+                document.body.appendChild(s);
+            }
+        }
     }
 
     const STATUS_STEPS = ['Received', 'Processing', 'Packed', 'Shipped', 'Delivered'];
