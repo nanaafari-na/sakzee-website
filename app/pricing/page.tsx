@@ -40,14 +40,12 @@ const storagePlans = [
 ];
 
 const deliveryZones = [
-    { zone: 'Accra Central', distance: '~5 km', fee: 30, time: 'Same day' },
-    { zone: 'Greater Accra', distance: '~20 km', fee: 60, time: 'Same day' },
-    { zone: 'Eastern Region', distance: '~110 km', fee: 240, time: '1-2 days' },
-    { zone: 'Central Region', distance: '~150 km', fee: 320, time: '1-2 days' },
-    { zone: 'Western Region', distance: '~290 km', fee: 600, time: '2-3 days' },
-    { zone: 'Ashanti Region', distance: '~250 km', fee: 520, time: '1-2 days' },
-    { zone: 'Northern Region', distance: '~600 km', fee: 1220, time: '3-4 days' },
-    { zone: 'Other Regions', distance: 'Varies', fee: null, time: 'Varies' },
+    { zone: 'Within 10km', distance: 'e.g. Oyarifa → Madina', fee: 25, time: 'Same day' },
+    { zone: '11 - 20km', distance: 'e.g. Oyarifa → Airport', fee: 40, time: 'Same day' },
+    { zone: '21 - 30km', distance: 'e.g. Oyarifa → Tema', fee: 55, time: 'Same day' },
+    { zone: '31 - 50km', distance: 'e.g. Oyarifa → Kasoa', fee: 81, time: 'Same day' },
+    { zone: '51 - 100km', distance: 'e.g. Oyarifa → Koforidua', fee: 141, time: '1-2 days' },
+    { zone: 'Over 100km', distance: 'Inter-regional', fee: null, time: 'Contact us' },
 ];
 
 const included = [
@@ -70,7 +68,7 @@ const faqs = [
     },
     {
         q: 'How is the delivery fee calculated?',
-        a: 'Delivery fees are based on distance from our Oyarifa warehouse plus a weight surcharge for packages over 5kg. The fee is shown clearly before you confirm any order — no surprises.',
+        a: 'Delivery fees are calculated by distance: GHS 25 covers the first 10km, then GHS 1.50 per additional km. A flat GHS 10 surcharge applies for packages over 5kg. The fee is shown clearly before you confirm — no surprises. For multi-stop deliveries, one base fee covers all stops.',
     },
     {
         q: 'Is there a minimum storage period?',
@@ -123,7 +121,7 @@ export default function PricingPage() {
                     <Link href="/" className="nav-link">Home</Link>
                     <Link href="/services" className="nav-link">Services</Link>
                     <Link href="/about" className="nav-link">About</Link>
-                    <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '7px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 700 }}>
+                    <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '7px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 700 }}>
                         Book Now
                     </Link>
                 </div>
@@ -249,7 +247,7 @@ export default function PricingPage() {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', minWidth: '520px' }}>
                             <thead>
                                 <tr style={{ background: '#1a2456' }}>
-                                    {['Delivery Zone', 'Distance', 'Base Fee (under 5kg)', 'Est. Delivery Time'].map(h => (
+                                    {['Distance Range', 'Example Route', 'Estimated Fee (under 5kg)', 'Delivery Time'].map(h => (
                                         <th key={h} style={{ padding: '0.9rem 1.1rem', textAlign: 'left', color: 'rgba(255,255,255,0.8)', fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                                     ))}
                                 </tr>
@@ -272,9 +270,27 @@ export default function PricingPage() {
                             </tbody>
                         </table>
                     </div>
-                    <p style={{ color: '#9ca3af', fontSize: '0.78rem', textAlign: 'center', marginTop: '0.75rem' }}>
-                        * Fees shown are base rates for packages under 5kg. Add GHS 3 per kg for every kg over 5kg.
-                    </p>
+
+                    {/* Fee formula */}
+                    <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem 1.5rem', marginTop: '1rem', border: '1px solid #e5e7eb' }}>
+                        <div style={{ fontWeight: 700, color: '#1a2456', marginBottom: '0.75rem', fontSize: '0.9rem' }}>📐 How fees are calculated</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                            {[
+                                { label: 'Base fee', value: 'GHS 25', note: 'Covers first 10km' },
+                                { label: 'Extra distance', value: 'GHS 1.50/km', note: 'Per km beyond 10km' },
+                                { label: 'Heavy package', value: '+ GHS 10', note: 'Flat fee for over 5kg' },
+                            ].map(item => (
+                                <div key={item.label} style={{ background: 'white', borderRadius: '8px', padding: '0.85rem', textAlign: 'center', border: '1px solid #e5e7eb' }}>
+                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.25rem' }}>{item.label}</div>
+                                    <div style={{ fontWeight: 800, color: '#f97316', fontSize: '1rem' }}>{item.value}</div>
+                                    <div style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: '0.2rem' }}>{item.note}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <p style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.75rem', marginBottom: 0 }}>
+                            For multi-stop deliveries, one base fee covers all stops — only distance varies. Payment is collected on delivery — no upfront payment required.
+                        </p>
+                    </div>
                 </div>
             </section>
 

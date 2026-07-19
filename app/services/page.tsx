@@ -28,7 +28,7 @@ const services = [
     {
         icon: '🚚',
         title: 'Shipping & Delivery',
-        pricing: 'From GHS 30',
+        pricing: 'From GHS 25',
         pricingNote: 'per delivery',
         desc: 'Nationwide last-mile delivery from Accra to every region. Fast, tracked and reliable.',
         features: ['Nationwide coverage', 'Real-time delivery tracking', 'Proof of delivery', 'Express & standard options', 'Route optimization'],
@@ -77,7 +77,7 @@ export default function ServicesPage() {
                     <Link href="/" className="nav-link">Home</Link>
                     <Link href="/about" className="nav-link">About</Link>
                     <Link href="/pricing" className="nav-link">Pricing</Link>
-                    <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Book Now</Link>
+                    <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Book Now</Link>
                 </div>
             </nav>
 
@@ -143,7 +143,7 @@ export default function ServicesPage() {
                                             WhatsApp Us
                                         </a>
                                     ) : (
-                                        <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.65rem 1.25rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.85rem', display: 'inline-block' }}>
+                                        <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.65rem 1.25rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '0.85rem', display: 'inline-block' }}>
                                             {s.ctaSecondary}
                                         </Link>
                                     )}

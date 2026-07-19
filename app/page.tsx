@@ -111,7 +111,7 @@ export default function HomePage() {
             <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 700, fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
               🚚 Book a Delivery
             </Link>
-            <Link href="/book" style={{ background: 'transparent', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '1rem', border: '2px solid rgba(255,255,255,0.35)', display: 'inline-block', textAlign: 'center' }}>
+            <Link href="/book/delivery" style={{ background: 'transparent', color: 'white', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '1rem', border: '2px solid rgba(255,255,255,0.35)', display: 'inline-block', textAlign: 'center' }}>
               Other Services
             </Link>
             <Link href="/vendor/register" style={{ background: 'transparent', color: 'rgba(255,255,255,0.7)', padding: '0.9rem 2.25rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 500, fontSize: '0.95rem', border: '1px solid rgba(255,255,255,0.2)', display: 'inline-block', textAlign: 'center' }}>
@@ -125,7 +125,7 @@ export default function HomePage() {
               🚚 Book a Delivery Now
             </Link>
             <div style={{ display: 'flex', gap: '0.65rem' }}>
-              <Link href="/book" style={{ flex: 1, background: 'transparent', color: 'white', padding: '0.8rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.35)', textAlign: 'center', display: 'block' }}>Other Services</Link>
+              <Link href="/book/delivery" style={{ flex: 1, background: 'transparent', color: 'white', padding: '0.8rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem', border: '2px solid rgba(255,255,255,0.35)', textAlign: 'center', display: 'block' }}>Other Services</Link>
               <Link href="/vendor/register" style={{ flex: 1, background: 'transparent', color: 'rgba(255,255,255,0.75)', padding: '0.8rem', borderRadius: '9px', textDecoration: 'none', fontWeight: 500, fontSize: '0.9rem', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center', display: 'block' }}>Be a Vendor</Link>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function HomePage() {
             <span style={{ fontSize: '1.75rem' }}>🚚</span>
             <div>
               <div style={{ color: 'white', fontWeight: 800, fontSize: '1rem' }}>Same-day delivery across Accra</div>
-              <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem' }}>From GHS 45 · Pay now · Instant confirmation</div>
+              <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem' }}>From GHS 25 · Pay on delivery · Instant booking</div>
             </div>
           </div>
           <Link href="/book/delivery" style={{ background: 'white', color: '#f97316', padding: '0.7rem 1.5rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 800, fontSize: '0.9rem', whiteSpace: 'nowrap' as const }}>
@@ -272,6 +272,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: '1.25rem' }}>
               <Link href="/terms" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: '0.76rem' }}>Terms of Service</Link>
               <Link href="/privacy" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: '0.76rem' }}>Privacy Policy</Link>
+              <Link href="/shipping" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: '0.76rem' }}>Shipping Policy</Link>
             </div>
           </div>
         </div>

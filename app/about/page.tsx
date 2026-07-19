@@ -37,7 +37,7 @@ export default function AboutPage() {
                     <Link href="/" className="nav-link">Home</Link>
                     <Link href="/services" className="nav-link">Services</Link>
                     <Link href="/pricing" className="nav-link">Pricing</Link>
-                    <Link href="/book" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Book Now</Link>
+                    <Link href="/book/delivery" style={{ background: '#f97316', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '6px', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>Book Now</Link>
                 </div>
             </nav>
 
