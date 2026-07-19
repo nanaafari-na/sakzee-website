@@ -42,23 +42,59 @@ export async function PATCH(req: NextRequest) {
         );
         if (!res.ok) throw new Error('Failed to update booking');
 
-        // Get full booking to notify
-        if (status) {
-            const bookingRes = await fetch(
-                `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(reference)}&select=*`,
-                { headers }
-            );
-            const bookings = await bookingRes.json();
-            const b = bookings?.[0];
+        // Get full booking
+        const bookingRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(reference)}&select=*`,
+            { headers }
+        );
+        const bookings = await bookingRes.json();
+        const b = bookings?.[0];
 
-            if (b) {
-                const pref = b.notification_preference || 'both';
+        if (b) {
+            const pref = b.notification_preference || 'whatsapp';
 
+            // Payment confirmed — notify paying party + rider
+            if (payment_status === 'paid') {
+                const payingPhone = b.paying_party === 'recipient' ? b.recipient_phone : b.phone;
+                const payingName = b.paying_party === 'recipient' ? b.recipient_name : b.name;
+                const payingEmail = b.paying_party === 'booker' ? b.email : null;
+
+                await notifyClientOrderStatus(
+                    { phone: payingPhone, email: payingEmail, name: payingName, notification_preference: pref },
+                    { reference: b.reference, status: 'Payment Received', service: 'Delivery', delivery_fee: b.delivery_fee }
+                );
+
+                // Notify rider
+                const assignmentRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/delivery_assignments?booking_id=eq.${encodeURIComponent(reference)}&select=*&limit=1`,
+                    { headers }
+                );
+                const assignments = await assignmentRes.json();
+                const assignment = assignments?.[0];
+
+                if (assignment?.rider_id) {
+                    const riderRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/riders?id=eq.${assignment.rider_id}&select=phone,name`,
+                        { headers }
+                    );
+                    const riders = await riderRes.json();
+                    const rider = riders?.[0];
+                    if (rider?.phone) {
+                        await notifyClientOrderStatus(
+                            { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
+                            { reference: b.reference, status: 'Payment Confirmed', service: 'Delivery', delivery_fee: b.delivery_fee }
+                        );
+                    }
+                }
+
+                // Status update
+            } else if (status) {
                 if (b.booking_type === 'delivery' && b.recipient_phone) {
                     await notifyDeliveryStatus({
                         reference: b.reference,
                         booker_name: b.name,
                         booker_phone: b.phone,
+                        booker_email: b.email,
                         recipient_name: b.recipient_name || b.name,
                         recipient_phone: b.recipient_phone || b.phone,
                         status,
@@ -69,7 +105,7 @@ export async function PATCH(req: NextRequest) {
                     });
                 } else {
                     await notifyClientOrderStatus(
-                        { phone: b.phone, name: b.name, notification_preference: pref },
+                        { phone: b.phone, email: b.email, name: b.name, notification_preference: pref },
                         { reference: b.reference, status, service: b.service, delivery_fee: b.delivery_fee }
                     );
                 }
