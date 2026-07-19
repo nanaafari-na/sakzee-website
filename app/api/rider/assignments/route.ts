@@ -70,7 +70,6 @@ export async function PATCH(req: NextRequest) {
                 if (status === 'failed') {
                     // Calculate return fee: max(25, delivery_fee / 2)
                     const returnFee = Math.max(25, Math.round((b.delivery_fee || 0) / 2));
-                    const totalDue = (b.delivery_fee || 0) + returnFee;
 
                     // Update booking with failed status, reason, and return fee
                     await fetch(
@@ -83,18 +82,19 @@ export async function PATCH(req: NextRequest) {
                                 failure_reason: failure_reason || 'Unknown',
                                 failure_notes: failure_notes || '',
                                 return_fee: returnFee,
+                                delivery_fee: returnFee,
                             }),
                         }
                     );
 
-                    // Notify booker — they pay original fee + return fee
+                    // Notify booker — they only pay the return fee
                     await notifyClientOrderStatus(
                         { phone: b.phone, email: b.email, name: b.name, notification_preference: pref },
                         {
                             reference: b.reference,
                             status: 'Failed',
-                            service: `Delivery failed: ${failure_reason}. Return fee: GHS ${returnFee}. Total due: GHS ${totalDue}`,
-                            delivery_fee: totalDue,
+                            service: `Delivery failed: ${failure_reason}. Return fee applies.`,
+                            delivery_fee: returnFee,
                         }
                     );
 

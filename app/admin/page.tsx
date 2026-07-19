@@ -368,7 +368,7 @@ export default function AdminPage() {
                                     <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: '0.5rem' }}>⚠️ Failed Delivery</div>
                                     <div style={{ fontSize: '0.85rem', color: '#374151' }}><strong>Reason:</strong> {(selectedBooking as any).failure_reason}</div>
                                     {(selectedBooking as any).failure_notes && <div style={{ fontSize: '0.85rem', color: '#374151', marginTop: '0.25rem' }}><strong>Notes:</strong> {(selectedBooking as any).failure_notes}</div>}
-                                    {(selectedBooking as any).return_fee > 0 && <div style={{ fontSize: '0.85rem', color: '#dc2626', marginTop: '0.5rem', fontWeight: 700 }}>Return fee: GHS {(selectedBooking as any).return_fee} · Total due: GHS {((selectedBooking as any).delivery_fee || 0) + ((selectedBooking as any).return_fee || 0)}</div>}
+                                    {(selectedBooking as any).return_fee > 0 && <div style={{ fontSize: '0.85rem', color: '#dc2626', marginTop: '0.5rem', fontWeight: 700 }}>Return fee due: GHS {(selectedBooking as any).return_fee}</div>}
                                 </div>
                             )}
                         </div>

@@ -54,7 +54,7 @@ export default function TrackPage() {
             setAssignment(data.assignment || null);
             setRider(data.rider || null);
             setPaid(data.booking?.payment_status === 'paid');
-            if (data.booking?.status === 'Delivered' && data.booking?.payment_status !== 'paid') {
+            if ((data.booking?.status === 'Delivered' || data.booking?.status === 'Failed') && data.booking?.payment_status !== 'paid') {
                 setShowPayment(true);
             }
             if (data.assignment?.status === 'picked_up') {
@@ -207,14 +207,21 @@ export default function TrackPage() {
                             </div>
                         </div>
 
-                        {/* Payment due banner */}
-                        {booking.status === 'Delivered' && !paid && (
-                            <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        {/* Payment due banner - Delivered or Failed */}
+                        {(booking.status === 'Delivered' || booking.status === 'Failed') && !paid && (
+                            <div style={{ background: booking.status === 'Failed' ? '#fef2f2' : '#fff7ed', border: `2px solid ${booking.status === 'Failed' ? '#dc2626' : '#f97316'}`, borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                                 <div>
-                                    <div style={{ fontWeight: 700, color: '#1a2456', marginBottom: '0.2rem' }}>Payment Due — {payingName}</div>
-                                    <div style={{ color: '#6b7280', fontSize: '0.85rem' }}>Delivery fee: <strong style={{ color: '#f97316', fontSize: '1.05rem' }}>GHS {booking.delivery_fee}</strong></div>
+                                    <div style={{ fontWeight: 700, color: '#1a2456', marginBottom: '0.2rem' }}>
+                                        {booking.status === 'Failed' ? '↩️ Return Fee Due' : 'Payment Due'} — {payingName}
+                                    </div>
+                                    <div style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                                        {booking.status === 'Failed'
+                                            ? <>Reason: <strong>{(booking as any).failure_reason}</strong> · Return fee: <strong style={{ color: '#dc2626', fontSize: '1.05rem' }}>GHS {booking.delivery_fee}</strong></>
+                                            : <>Delivery fee: <strong style={{ color: '#f97316', fontSize: '1.05rem' }}>GHS {booking.delivery_fee}</strong></>
+                                        }
+                                    </div>
                                 </div>
-                                <button onClick={() => setShowPayment(true)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '9px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem', fontFamily: 'inherit' }}>
+                                <button onClick={() => setShowPayment(true)} style={{ background: booking.status === 'Failed' ? '#dc2626' : '#f97316', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '9px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem', fontFamily: 'inherit' }}>
                                     Pay Now
                                 </button>
                             </div>
@@ -299,9 +306,15 @@ export default function TrackPage() {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
                     <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', maxWidth: '400px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
                         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💰</div>
-                            <h2 style={{ color: '#1a2456', fontWeight: 800, fontSize: '1.3rem', margin: '0 0 0.3rem' }}>Delivery Complete!</h2>
-                            <p style={{ color: '#6b7280', fontSize: '0.88rem' }}>Hi {payingName}, please make payment for your delivery.</p>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{booking.status === 'Failed' ? '↩️' : '💰'}</div>
+                            <h2 style={{ color: '#1a2456', fontWeight: 800, fontSize: '1.3rem', margin: '0 0 0.3rem' }}>
+                                {booking.status === 'Failed' ? 'Return Fee Payment' : 'Delivery Complete!'}
+                            </h2>
+                            <p style={{ color: '#6b7280', fontSize: '0.88rem' }}>
+                                {booking.status === 'Failed'
+                                    ? `Hi ${payingName}, your delivery could not be completed. Please pay the return fee.`
+                                    : `Hi ${payingName}, please make payment for your delivery.`}
+                            </p>
                         </div>
 
                         <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>
