@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
                         package_description: stop.package_description || null,
                         weight_over_5kg: stop.weight_over_5kg || false,
                         distance_km: stop.distance_km || 0,
+                        delivery_fee: stop.fee || stop.delivery_fee || 0,
+                        paying_party: stop.paying_party || 'booker',
                     }),
                 });
             }

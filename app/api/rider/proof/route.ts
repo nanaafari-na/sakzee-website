@@ -12,43 +12,43 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const file = formData.get('file') as File;
         const assignment_id = formData.get('assignment_id') as string;
+        const stop_id = formData.get('stop_id') as string | null;
 
         if (!file || !assignment_id) return NextResponse.json({ error: 'Missing file or assignment_id' }, { status: 400 });
 
         // Upload to Supabase Storage
-        const fileName = `proof_${assignment_id}_${Date.now()}.${file.name.split('.').pop()}`;
+        const suffix = stop_id ? `_stop${stop_id}` : '';
+        const fileName = `proof_${assignment_id}${suffix}_${Date.now()}.${file.name.split('.').pop()}`;
         const arrayBuffer = await file.arrayBuffer();
 
         const uploadRes = await fetch(
             `${SUPABASE_URL}/storage/v1/object/proofs/${fileName}`,
             {
                 method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': file.type,
-                    'x-upsert': 'true',
-                },
+                headers: { ...headers, 'Content-Type': file.type, 'x-upsert': 'true' },
                 body: arrayBuffer,
             }
         );
 
-        if (!uploadRes.ok) {
-            const err = await uploadRes.text();
-            throw new Error(`Upload failed: ${err}`);
-        }
+        if (!uploadRes.ok) throw new Error(`Upload failed: ${await uploadRes.text()}`);
 
-        // Get public URL
         const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/proofs/${fileName}`;
 
-        // Update assignment with proof URL
-        await fetch(
-            `${SUPABASE_URL}/rest/v1/delivery_assignments?id=eq.${assignment_id}`,
-            {
+        if (stop_id) {
+            // Save proof to booking_stops
+            await fetch(`${SUPABASE_URL}/rest/v1/booking_stops?id=eq.${stop_id}`, {
                 method: 'PATCH',
                 headers: { ...headers, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ proof_of_delivery_url: publicUrl }),
-            }
-        );
+            });
+        } else {
+            // Save proof to delivery_assignments
+            await fetch(`${SUPABASE_URL}/rest/v1/delivery_assignments?id=eq.${assignment_id}`, {
+                method: 'PATCH',
+                headers: { ...headers, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ proof_of_delivery_url: publicUrl }),
+            });
+        }
 
         return NextResponse.json({ url: publicUrl });
     } catch (e: any) {

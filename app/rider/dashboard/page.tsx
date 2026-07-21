@@ -2,6 +2,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+type Stop = {
+    id: string;
+    stop_order: number;
+    address: string;
+    contact_name: string;
+    contact_phone: string;
+    package_description: string;
+    weight_over_5kg: boolean;
+    delivery_fee: number;
+    paying_party: string;
+    status: string;
+    failure_reason?: string;
+    proof_of_delivery_url?: string;
+};
+
 type Assignment = {
     id: string;
     booking_id: string;
@@ -11,6 +26,7 @@ type Assignment = {
     delivered_at: string | null;
     failure_reason?: string;
     failure_notes?: string;
+    stops?: Stop[];
     booking: {
         name: string;
         phone: string;
@@ -20,6 +36,7 @@ type Assignment = {
         pickup_date: string;
         pickup_time: string;
         delivery_fee: number;
+        delivery_type?: string;
     };
 };
 
@@ -35,6 +52,7 @@ export default function RiderDashboard() {
     const [issueReason, setIssueReason] = useState('');
     const [issueNotes, setIssueNotes] = useState('');
     const [reportingLoading, setReportingLoading] = useState(false);
+    const [reportingStopId, setReportingStopId] = useState<string | null>(null);
     const locationInterval = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
@@ -134,6 +152,50 @@ export default function RiderDashboard() {
         } catch (e: any) {
             setError(e.message);
         }
+        setReportingLoading(false);
+    }
+
+    async function deliverStop(assignmentId: string, stopId: string, file: File) {
+        const riderId = localStorage.getItem('rider_id');
+        setUploading(true);
+        try {
+            // Upload proof
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('assignment_id', assignmentId);
+            formData.append('rider_id', riderId!);
+            formData.append('stop_id', stopId);
+            const proofRes = await fetch('/api/rider/proof', { method: 'POST', body: formData });
+            if (!proofRes.ok) throw new Error('Upload failed');
+            const { url } = await proofRes.json();
+
+            // Save proof URL to stop
+            await fetch(`${window.location.origin}/api/rider/assignments?id=${assignmentId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'delivered', stop_id: stopId, proof_url: url, rider_id: riderId }),
+            });
+            await loadAssignments(riderId!);
+        } catch (e: any) { setError(e.message); }
+        setUploading(false);
+    }
+
+    async function reportStopIssue(assignmentId: string, stopId: string) {
+        if (!issueReason) { setError('Please select a reason.'); return; }
+        setReportingLoading(true);
+        const riderId = localStorage.getItem('rider_id');
+        try {
+            await fetch(`/api/rider/assignments?id=${assignmentId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'failed', stop_id: stopId, failure_reason: issueReason, failure_notes: issueNotes, rider_id: riderId }),
+            });
+            setReportingIssue(null);
+            setReportingStopId(null);
+            setIssueReason('');
+            setIssueNotes('');
+            await loadAssignments(riderId!);
+        } catch (e: any) { setError(e.message); }
         setReportingLoading(false);
     }
 
@@ -288,6 +350,41 @@ export default function RiderDashboard() {
                             </div>
                         )}
 
+                        {/* Multi-delivery stops */}
+                        {a.booking?.delivery_type === 'multi_delivery' && a.stops && a.stops.length > 0 && a.status === 'picked_up' && (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Delivery Stops</div>
+                                {a.stops.map((stop, i) => {
+                                    const isActive = a.stops!.findIndex((s: Stop) => s.status === 'pending') === i;
+                                    const stopDone = stop.status === 'delivered';
+                                    const stopFailed = stop.status === 'failed';
+                                    return (
+                                        <div key={stop.id} style={{ background: stopDone ? '#f0fdf4' : stopFailed ? '#fef2f2' : isActive ? '#fff7ed' : '#f8f9ff', border: `1px solid ${stopDone ? '#bbf7d0' : stopFailed ? '#fecaca' : isActive ? '#fed7aa' : '#e5e7eb'}`, borderRadius: '10px', padding: '0.85rem', marginBottom: '0.65rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                                <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.82rem' }}>Stop {stop.stop_order}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    {stop.delivery_fee > 0 && <span style={{ color: '#f97316', fontWeight: 700, fontSize: '0.78rem' }}>GHS {stop.delivery_fee}</span>}
+                                                    <span style={{ background: stopDone ? '#f0fdf4' : stopFailed ? '#fef2f2' : isActive ? '#fff7ed' : '#f8f9ff', color: stopDone ? '#15803d' : stopFailed ? '#dc2626' : isActive ? '#c2410c' : '#9ca3af', padding: '0.18rem 0.55rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                                        {stopDone ? '✅ Delivered' : stopFailed ? '❌ Failed' : isActive ? '🔄 Active' : '⏳ Pending'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>{stop.contact_name} · {stop.contact_phone}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.15rem' }}>{stop.address}</div>
+                                            {stop.failure_reason && <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.25rem' }}>Reason: {stop.failure_reason}</div>}
+                                            {isActive && !stopDone && !stopFailed && (
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem' }}>
+                                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#1a2456', color: 'white', padding: '0.6rem', borderRadius: '8px', textDecoration: 'none', fontSize: '0.78rem', fontWeight: 600, textAlign: 'center', display: 'block' }}>🗺️ Navigate</a>
+                                                    <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment'); input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) deliverStop(a.id, stop.id, file); }; input.click(); }} disabled={uploading} style={{ flex: 1, background: uploading ? '#ccc' : '#15803d', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>{uploading ? '...' : '📸 Mark Delivered'}</button>
+                                                    <button onClick={() => { setReportingIssue(a.id); setReportingStopId(stop.id); }} style={{ flex: 1, background: 'white', color: '#dc2626', border: '1.5px solid #fecaca', padding: '0.6rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>↩️ Fail</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
                         {/* Actions */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                             {a.status === 'assigned' && (
@@ -388,14 +485,14 @@ export default function RiderDashboard() {
                             <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} placeholder="Any additional details..." style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.92rem', outline: 'none', fontFamily: 'inherit', color: '#1a2456', minHeight: '80px', resize: 'vertical' as const, boxSizing: 'border-box' as const }} />
                         </div>
                         <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '0.85rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#c2410c' }}>
-                            ⚠️ The sender will be charged the original delivery fee plus a return fee. This action cannot be undone.
+                            ⚠️ {reportingStopId ? 'A return fee will apply for this stop. This action cannot be undone.' : 'The sender will be charged a return fee. This action cannot be undone.'}
                         </div>
                         {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.65rem', color: '#dc2626', fontSize: '0.82rem', marginBottom: '1rem' }}>{error}</div>}
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button onClick={() => reportingIssue && reportIssue(reportingIssue)} disabled={reportingLoading} style={{ flex: 1, background: reportingLoading ? '#ccc' : '#dc2626', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '10px', fontWeight: 700, cursor: reportingLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                            <button onClick={() => reportingStopId ? reportStopIssue(reportingIssue!, reportingStopId) : (reportingIssue && reportIssue(reportingIssue))} disabled={reportingLoading} style={{ flex: 1, background: reportingLoading ? '#ccc' : '#dc2626', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '10px', fontWeight: 700, cursor: reportingLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>
                                 {reportingLoading ? 'Reporting...' : 'Confirm Failed Delivery'}
                             </button>
-                            <button onClick={() => { setReportingIssue(null); setIssueReason(''); setIssueNotes(''); setError(''); }} style={{ flex: 1, background: 'white', color: '#374151', border: '1.5px solid #e2e8f0', padding: '0.9rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Cancel</button>
+                            <button onClick={() => { setReportingIssue(null); setReportingStopId(null); setIssueReason(''); setIssueNotes(''); setError(''); }} style={{ flex: 1, background: 'white', color: '#374151', border: '1.5px solid #e2e8f0', padding: '0.9rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Cancel</button>
                         </div>
                     </div>
                 </div>
