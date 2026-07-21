@@ -27,10 +27,12 @@ interface Stop {
     package_description: string;
     weight_over_5kg: boolean;
     distance_km: number;
+    fee: number;
+    paying_party: 'booker' | 'recipient';
 }
 
 function newStop(): Stop {
-    return { id: Date.now().toString(), address: '', contact_name: '', contact_phone: '', package_description: '', weight_over_5kg: false, distance_km: 0 };
+    return { id: Date.now().toString(), address: '', contact_name: '', contact_phone: '', package_description: '', weight_over_5kg: false, distance_km: 0, fee: 0, paying_party: 'booker' };
 }
 
 export default function BookDeliveryPage() {
@@ -149,51 +151,76 @@ export default function BookDeliveryPage() {
         });
     }
 
-    async function calcMultiDistance(origins: string[], destinations: string[]) {
-        if (!window.google || !origins.length || !destinations.length) return;
+    // Calculate distance for each delivery stop independently from pickup
+    async function calcMultiDeliveryDistances(pickup: string, stops: Stop[]) {
+        if (!window.google || !pickup) return;
         setCalculatingDistance(true);
         const service = new window.google.maps.DistanceMatrixService();
+        const dests = stops.map(s => s.address).filter(Boolean);
+        if (!dests.length) { setCalculatingDistance(false); return; }
 
-        // Build waypoint chain: origin[0] → origin[1] → ... → dest[0] → dest[1] → ...
-        const allPoints = [...origins, ...destinations];
+        service.getDistanceMatrix({
+            origins: [pickup],
+            destinations: dests,
+            travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (res: any, status: string) => {
+            if (status === 'OK' && res.rows[0]) {
+                const updated = [...stops];
+                res.rows[0].elements.forEach((el: any, i: number) => {
+                    if (el.status === 'OK') {
+                        const km = Math.ceil(el.distance.value / 1000);
+                        updated[i] = { ...updated[i], distance_km: km, fee: calcFee(km, updated[i].weight_over_5kg) };
+                    } else {
+                        updated[i] = { ...updated[i], distance_km: 20, fee: calcFee(20, updated[i].weight_over_5kg) };
+                    }
+                });
+                setDeliveryStops(updated);
+                const total = updated.reduce((sum, s) => sum + (s.fee || 0), 0);
+                setTotalDistanceKm(total); // store total fee in totalDistanceKm for multi-delivery
+                setDistanceText(`${updated.length} stops`);
+            }
+            setCalculatingDistance(false);
+        });
+    }
+
+    // Calculate cumulative distance for multi-pickup
+    async function calcMultiPickupDistance(pickups: Stop[], delivery: string) {
+        if (!window.google || !delivery) return;
+        setCalculatingDistance(true);
+        const service = new window.google.maps.DistanceMatrixService();
+        const allPoints = [...pickups.map(s => s.address).filter(Boolean), delivery];
+        if (allPoints.length < 2) { setCalculatingDistance(false); return; }
+
         let totalKm = 0;
-        const promises = [];
-
         for (let i = 0; i < allPoints.length - 1; i++) {
-            promises.push(new Promise<number>(resolve => {
+            await new Promise<void>(resolve => {
                 service.getDistanceMatrix({
                     origins: [allPoints[i]], destinations: [allPoints[i + 1]],
                     travelMode: window.google.maps.TravelMode.DRIVING,
                 }, (res: any, status: string) => {
                     if (status === 'OK' && res.rows[0]?.elements[0]?.status === 'OK') {
-                        resolve(Math.ceil(res.rows[0].elements[0].distance.value / 1000));
-                    } else resolve(10);
+                        totalKm += Math.ceil(res.rows[0].elements[0].distance.value / 1000);
+                    } else totalKm += 10;
+                    resolve();
                 });
-            }));
+            });
         }
-
-        const distances = await Promise.all(promises);
-        totalKm = distances.reduce((a, b) => a + b, 0);
         setTotalDistanceKm(totalKm);
         setDistanceText(`${totalKm} km total`);
         setCalculatingDistance(false);
     }
-
-    // Recalculate when multi stops change
     useEffect(() => {
         if (!mapsReady) return;
         if (deliveryType === 'multi_delivery') {
-            const origins = [singlePickupAddress].filter(Boolean);
-            const dests = deliveryStops.map(s => s.address).filter(Boolean);
-            if (origins.length && dests.length) {
-                const t = setTimeout(() => calcMultiDistance(origins, dests), 1000);
+            const validStops = deliveryStops.filter(s => s.address);
+            if (singlePickupAddress && validStops.length) {
+                const t = setTimeout(() => calcMultiDeliveryDistances(singlePickupAddress, deliveryStops), 1000);
                 return () => clearTimeout(t);
             }
         } else if (deliveryType === 'multi_pickup') {
-            const origins = pickupStops.map(s => s.address).filter(Boolean);
-            const dests = [singleDeliveryAddress].filter(Boolean);
-            if (origins.length && dests.length) {
-                const t = setTimeout(() => calcMultiDistance(origins, dests), 1000);
+            const validPickups = pickupStops.filter(s => s.address);
+            if (validPickups.length && singleDeliveryAddress) {
+                const t = setTimeout(() => calcMultiPickupDistance(pickupStops, singleDeliveryAddress), 1000);
                 return () => clearTimeout(t);
             }
         }
@@ -203,7 +230,14 @@ export default function BookDeliveryPage() {
         : deliveryType === 'multi_delivery' ? deliveryStops.some(s => s.weight_over_5kg)
             : pickupStops.some(s => s.weight_over_5kg);
 
-    const deliveryFee = totalDistanceKm > 0 ? calcFee(totalDistanceKm, hasHeavy) : 0;
+    // For multi-delivery: total = sum of individual stop fees
+    // For single/multi-pickup: calculate from distance
+    const multiDeliveryTotal = deliveryType === 'multi_delivery'
+        ? deliveryStops.reduce((sum, s) => sum + (s.fee || 0), 0)
+        : 0;
+    const deliveryFee = deliveryType === 'multi_delivery'
+        ? multiDeliveryTotal
+        : totalDistanceKm > 0 ? calcFee(totalDistanceKm, hasHeavy) : 0;
 
     function updateStop(list: Stop[], setList: (s: Stop[]) => void, idx: number, field: keyof Stop, value: any) {
         const updated = [...list];
@@ -253,7 +287,7 @@ export default function BookDeliveryPage() {
             const ref = `SAKDEL-${Date.now()}`;
             const stops = deliveryType === 'multi_delivery'
                 ? [{ type: 'pickup', address: singlePickupAddress, contact_name: sender.name, contact_phone: sender.phone },
-                ...deliveryStops.map((s, i) => ({ type: 'delivery', ...s, stop_order: i + 1 }))]
+                ...deliveryStops.map((s, i) => ({ type: 'delivery', ...s, stop_order: i + 1, paying_party: s.paying_party, fee: s.fee }))]
                 : deliveryType === 'multi_pickup'
                     ? [...pickupStops.map((s, i) => ({ type: 'pickup', ...s, stop_order: i + 1 })),
                     { type: 'delivery', address: singleDeliveryAddress, contact_name: singleRecipient.name, contact_phone: singleRecipient.phone }]
@@ -349,7 +383,7 @@ export default function BookDeliveryPage() {
         y += 4;
 
         sectionHeader('DELIVERY TYPE');
-        row('Type', deliveryType === 'single' ? 'Single pickup → Single delivery' : deliveryType === 'multi_delivery' ? 'Single pickup → Multiple deliveries' : 'Multiple pickups → Single delivery');
+        row('Type', deliveryType === 'single' ? 'Single' : deliveryType === 'multi_delivery' ? `Multi-Drop (${deliveryStops.length} stops)` : `Multi-Pickup (${pickupStops.length} stops)`);
         row('Date', deliveryType === 'single' ? single.pickup_date : sharedPickupDate);
         row('Time', deliveryType === 'single' ? single.pickup_time : sharedPickupTime);
         y += 4;
@@ -365,14 +399,16 @@ export default function BookDeliveryPage() {
         } else if (deliveryType === 'multi_delivery') {
             sectionHeader('PICKUP');
             row('Pickup address', singlePickupAddress);
+            row('Date', `${sharedPickupDate} at ${sharedPickupTime}`);
             y += 2;
             sectionHeader('DELIVERY STOPS');
             deliveryStops.forEach((s, i) => {
-                row(`Stop ${i + 1} - Address`, s.address);
-                row(`Stop ${i + 1} - Recipient`, s.contact_name);
-                row(`Stop ${i + 1} - Phone`, s.contact_phone);
-                if (s.package_description) row(`Stop ${i + 1} - Package`, s.package_description);
-                row(`Stop ${i + 1} - Weight`, s.weight_over_5kg ? 'Over 5kg' : 'Under 5kg');
+                row(`Stop ${i + 1} — Address`, s.address);
+                row(`Stop ${i + 1} — Recipient`, `${s.contact_name} · ${s.contact_phone}`);
+                row(`Stop ${i + 1} — Weight`, s.weight_over_5kg ? 'Over 5kg' : 'Under 5kg');
+                row(`Stop ${i + 1} — Pays`, s.paying_party === 'recipient' ? s.contact_name : sender.name || 'Sender');
+                row(`Stop ${i + 1} — Fee`, `GHS ${s.fee}`);
+                if (s.package_description) row(`Stop ${i + 1} — Package`, s.package_description);
                 y += 2;
             });
         } else {
@@ -391,20 +427,27 @@ export default function BookDeliveryPage() {
 
         y += 4;
         sectionHeader('PAYMENT');
-        row('Distance', distanceText);
-        row('Estimated fee', `GHS ${deliveryFee}`);
-        row('Payment mode', 'Pay on delivery');
+        row('Distance', deliveryType === 'multi_delivery' ? `${deliveryStops.length} independent stops` : distanceText);
+        if (deliveryType !== 'multi_delivery') row('Estimated fee', `GHS ${deliveryFee}`);
+        row('Payment mode', deliveryType === 'multi_delivery' ? 'Per stop — pay on delivery' : 'Pay on delivery');
         row('Notifications', notifPref === 'both' ? 'Email & WhatsApp' : notifPref === 'email' ? 'Email' : 'WhatsApp');
         y += 4;
 
-        doc.setFillColor(255, 247, 237); doc.setDrawColor(...orange);
-        doc.roundedRect(15, y, 180, 18, 3, 3, 'FD');
-        doc.setTextColor(...gray); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-        doc.text('Total Estimated Fee', 20, y + 7);
-        doc.setTextColor(...orange); doc.setFontSize(16); doc.setFont('helvetica', 'bold');
-        doc.text(`GHS ${deliveryFee}`, 190, y + 11, { align: 'right' });
-        doc.setTextColor(...gray); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
-        doc.text('Payable on delivery', 20, y + 14);
+        if (deliveryType !== 'multi_delivery') {
+            doc.setFillColor(255, 247, 237); doc.setDrawColor(...orange);
+            doc.roundedRect(15, y, 180, 18, 3, 3, 'FD');
+            doc.setTextColor(...gray); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+            doc.text('Total Estimated Fee', 20, y + 7);
+            doc.setTextColor(...orange); doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+            doc.text(`GHS ${deliveryFee}`, 190, y + 11, { align: 'right' });
+            doc.setTextColor(...gray); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+            doc.text('Payable on delivery', 20, y + 14);
+        } else {
+            doc.setFillColor(255, 247, 237); doc.setDrawColor(...orange);
+            doc.roundedRect(15, y, 180, 12, 3, 3, 'FD');
+            doc.setTextColor(...orange); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+            doc.text('Each stop billed independently — pay on delivery per stop', 105, y + 8, { align: 'center' });
+        }
 
         doc.setFillColor(...navy); doc.rect(0, 280, 210, 17, 'F');
         doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'bold');
@@ -443,8 +486,10 @@ export default function BookDeliveryPage() {
                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1a2456', fontFamily: 'monospace' }}>{reference}</div>
                 </div>
                 <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '0.85rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#c2410c' }}>
-                    <strong>Estimated fee: GHS {deliveryFee}</strong> {totalDistanceKm > 0 && `— ${distanceText}`}<br />
-                    Payment collected on delivery
+                    {deliveryType === 'multi_delivery'
+                        ? <><strong>{deliveryStops.length} stops booked</strong> — each stop billed independently on delivery</>
+                        : <><strong>Estimated fee: GHS {deliveryFee}</strong> — payment collected on delivery</>
+                    }
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <button onClick={downloadReceipt} style={{ width: '100%', background: '#1a2456', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
@@ -461,11 +506,14 @@ export default function BookDeliveryPage() {
     );
 
     // ─── STOP CARD COMPONENT ──────────────────────────────────────
-    function StopCard({ stop, index, label, list, setList, showWeight = true }: { stop: Stop; index: number; label: string; list: Stop[]; setList: (s: Stop[]) => void; showWeight?: boolean }) {
+    function StopCard({ stop, index, label, list, setList, showWeight = true, showPayingParty = false, bookerName = '' }: { stop: Stop; index: number; label: string; list: Stop[]; setList: (s: Stop[]) => void; showWeight?: boolean; showPayingParty?: boolean; bookerName?: string }) {
         return (
             <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e5e7eb', marginBottom: '0.85rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.9rem' }}>{label} {index + 1}</div>
+                    <div>
+                        <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.9rem' }}>{label} {index + 1}</div>
+                        {stop.fee > 0 && <div style={{ color: '#f97316', fontWeight: 700, fontSize: '0.82rem', marginTop: '0.15rem' }}>Fee: GHS {stop.fee}</div>}
+                    </div>
                     {list.length > 1 && (
                         <button onClick={() => removeStop(list, setList, index)} style={{ background: '#fef2f2', border: 'none', color: '#dc2626', borderRadius: '6px', padding: '0.3rem 0.65rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit' }}>Remove</button>
                     )}
@@ -503,6 +551,23 @@ export default function BookDeliveryPage() {
                                 <option value="under">Under 5kg</option>
                                 <option value="over">Over 5kg (+GHS 10 surcharge)</option>
                             </select>
+                        </div>
+                    )}
+                    {showPayingParty && (
+                        <div>
+                            <label style={{ ...lbl, marginBottom: '0.5rem' }}>Who pays for this stop?</label>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                {[
+                                    { value: 'booker', label: `Sender (${bookerName || 'You'})`, icon: '👤' },
+                                    { value: 'recipient', label: `Recipient (${stop.contact_name || 'Recipient'})`, icon: '📦' },
+                                ].map(opt => (
+                                    <label key={opt.value} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 0.75rem', border: `2px solid ${stop.paying_party === opt.value ? '#f97316' : '#e2e8f0'}`, borderRadius: '8px', cursor: 'pointer', background: stop.paying_party === opt.value ? '#fff7ed' : 'white' }}>
+                                        <input type="radio" name={`paying_party_${stop.id}`} value={opt.value} checked={stop.paying_party === opt.value} onChange={() => updateStop(list, setList, index, 'paying_party', opt.value)} style={{ accentColor: '#f97316', flexShrink: 0 }} />
+                                        <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: stop.paying_party === opt.value ? '#c2410c' : '#6b7280', lineHeight: 1.3 }}>{opt.label}</span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -709,12 +774,22 @@ export default function BookDeliveryPage() {
                                             )}
                                         </div>
                                         {deliveryStops.map((stop, i) => (
-                                            <StopCard key={stop.id} stop={stop} index={i} label="Delivery Stop" list={deliveryStops} setList={setDeliveryStops} />
+                                            <StopCard key={stop.id} stop={stop} index={i} label="Delivery Stop" list={deliveryStops} setList={setDeliveryStops} showPayingParty={true} bookerName={sender.name} />
                                         ))}
                                     </div>
 
-                                    {calculatingDistance && <div style={{ background: '#f8f9ff', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><div style={{ width: '14px', height: '14px', border: '2px solid #1a2456', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Calculating total distance...</div>}
-                                    {totalDistanceKm > 0 && !calculatingDistance && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', color: '#15803d' }}>📍 Total distance: <strong>{distanceText}</strong> across {deliveryStops.length} stops</div>}
+                                    {calculatingDistance && <div style={{ background: '#f8f9ff', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><div style={{ width: '14px', height: '14px', border: '2px solid #1a2456', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Calculating distances...</div>}
+                                    {!calculatingDistance && deliveryStops.some(s => s.fee > 0) && (
+                                        <div style={{ background: '#f8f9ff', borderRadius: '10px', padding: '1rem', border: '1px solid #e5e7eb' }}>
+                                            <div style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, marginBottom: '0.5rem' }}>Fee per stop — each paid independently</div>
+                                            {deliveryStops.map((s, i) => s.fee > 0 && (
+                                                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem', paddingBottom: '0.25rem', borderBottom: '1px solid #e5e7eb' }}>
+                                                    <span style={{ color: '#374151' }}>Stop {i + 1} — {s.contact_name || 'Recipient'} ({s.distance_km}km) · Paid by {s.paying_party === 'recipient' ? s.contact_name || 'Recipient' : sender.name || 'Sender'}</span>
+                                                    <span style={{ color: '#f97316', fontWeight: 700, marginLeft: '0.5rem', flexShrink: 0 }}>GHS {s.fee}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </>
                             )}
 
@@ -773,7 +848,7 @@ export default function BookDeliveryPage() {
                                 <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Booking Type</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.32rem 0', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem', marginBottom: '0.65rem' }}>
                                     <span style={{ color: '#666' }}>Type</span>
-                                    <span style={{ color: '#1a2456', fontWeight: 500 }}>{deliveryType === 'single' ? 'Single Delivery' : deliveryType === 'multi_delivery' ? `Multi-Delivery (${deliveryStops.length} stops)` : `Multi-Pickup (${pickupStops.length} stops)`}</span>
+                                    <span style={{ color: '#1a2456', fontWeight: 500 }}>{deliveryType === 'single' ? 'Single' : deliveryType === 'multi_delivery' ? `Multi-Drop (${deliveryStops.length} stops)` : `Multi-Pickup (${pickupStops.length} stops)`}</span>
                                 </div>
 
                                 {/* Sender */}
@@ -808,12 +883,19 @@ export default function BookDeliveryPage() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.32rem 0', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}><span style={{ color: '#666' }}>Pickup</span><span style={{ color: '#1a2456', fontWeight: 500, textAlign: 'right', maxWidth: '200px' }}>{singlePickupAddress}</span></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.32rem 0', borderBottom: '1px solid #e5e7eb', fontSize: '0.85rem' }}><span style={{ color: '#666' }}>Date</span><span style={{ color: '#1a2456', fontWeight: 500 }}>{sharedPickupDate} at {sharedPickupTime}</span></div>
                                         {deliveryStops.map((s, i) => (
-                                            <div key={s.id} style={{ margin: '0.5rem 0', padding: '0.5rem', background: 'white', borderRadius: '8px', fontSize: '0.82rem' }}>
-                                                <div style={{ fontWeight: 700, color: '#f97316', marginBottom: '0.3rem' }}>Stop {i + 1}</div>
+                                            <div key={s.id} style={{ margin: '0.5rem 0', padding: '0.65rem', background: 'white', borderRadius: '8px', fontSize: '0.82rem', border: '1px solid #e5e7eb' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                                                    <div style={{ fontWeight: 700, color: '#f97316' }}>Stop {i + 1}</div>
+                                                    <div style={{ fontWeight: 700, color: '#f97316' }}>GHS {s.fee}</div>
+                                                </div>
                                                 <div style={{ color: '#374151' }}>{s.contact_name} · {s.contact_phone}</div>
                                                 <div style={{ color: '#6b7280', fontSize: '0.78rem' }}>{s.address}</div>
+                                                <div style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                                                    Pays: {s.paying_party === 'recipient' ? s.contact_name : sender.name || 'Sender'} · {s.weight_over_5kg ? 'Over 5kg' : 'Under 5kg'}
+                                                </div>
                                             </div>
                                         ))}
+                                        <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.5rem' }}>Each stop is billed and paid independently.</p>
                                     </>
                                 )}
 
@@ -837,14 +919,16 @@ export default function BookDeliveryPage() {
                                     <span style={{ color: '#666' }}>Notifications</span>
                                     <span style={{ color: '#1a2456', fontWeight: 500 }}>{notifPref === 'both' ? 'Email & WhatsApp' : notifPref === 'email' ? 'Email' : 'WhatsApp'}</span>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0 0', fontSize: '1.1rem', fontWeight: 800 }}>
-                                    <span style={{ color: '#1a2456' }}>Estimated Fee</span>
-                                    <span style={{ color: '#f97316' }}>GHS {deliveryFee}</span>
-                                </div>
+                                {deliveryType !== 'multi_delivery' && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0 0', fontSize: '1.1rem', fontWeight: 800 }}>
+                                        <span style={{ color: '#1a2456' }}>Estimated Fee</span>
+                                        <span style={{ color: '#f97316' }}>GHS {deliveryFee}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.85rem', color: '#15803d' }}>
-                                💰 <strong>Pay on delivery</strong> — payment collected when your package{deliveryType !== 'single' ? 's are' : ' is'} delivered
+                                💰 <strong>Pay on delivery</strong> — {deliveryType === 'multi_delivery' ? 'each stop is billed and paid independently on delivery' : `payment collected when your package${deliveryType !== 'single' ? 's are' : ' is'} delivered`}
                             </div>
 
                             <button onClick={confirmBooking} disabled={loading} style={{ width: '100%', background: loading ? '#ccc' : '#f97316', color: 'white', border: 'none', padding: '1rem', borderRadius: '10px', fontSize: '1rem', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
