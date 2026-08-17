@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
         if (booking) {
             await notifyClientOrderStatus(
                 {
+                    email: booking.email,
                     name: booking.name,
                     phone: booking.phone,
                     notification_preference: booking.notification_preference || 'both',
@@ -77,6 +78,24 @@ export async function POST(req: NextRequest) {
                     reference: booking.reference,
                     status: 'Processing',
                     service: `Delivery — Rider: ${rider?.name || 'Assigned'}`,
+                }
+            );
+        }
+
+        // Notify rider via WhatsApp
+        if (rider?.phone && booking) {
+            const deliveryType = booking.delivery_type === 'multi_delivery'
+                ? `Multi-Drop (${booking.total_stops} stops)`
+                : booking.delivery_type === 'multi_pickup'
+                    ? `Multi-Pickup (${booking.total_stops} stops)`
+                    : 'Single Delivery';
+
+            await notifyClientOrderStatus(
+                { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
+                {
+                    reference: booking.reference,
+                    status: 'New Assignment',
+                    service: `${deliveryType} · Pickup: ${booking.pickup_address} · Deliver to: ${booking.delivery_address} · Log in: sakzee.com/rider/login`,
                 }
             );
         }
