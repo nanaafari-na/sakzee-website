@@ -89,6 +89,9 @@ export default function RiderLoginPage() {
                 <p style={{ color: '#9ca3af', fontSize: '0.8rem', textAlign: 'center', marginTop: '1.5rem' }}>
                     Need help? Call <a href="tel:+233256089599" style={{ color: '#f97316', textDecoration: 'none', fontWeight: 600 }}>0256 089 599</a>
                 </p>
+                <p style={{ color: '#9ca3af', fontSize: '0.78rem', textAlign: 'center', marginTop: '0.5rem' }}>
+                    Forgot your PIN? Contact your admin to reset it.
+                </p>
             </div>
         </div>
     );
