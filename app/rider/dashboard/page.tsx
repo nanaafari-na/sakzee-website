@@ -251,8 +251,8 @@ export default function RiderDashboard() {
         delivered: { bg: '#f0fdf4', color: '#15803d', label: 'Delivered' },
     };
 
-    const activeAssignments = assignments.filter(a => a.status !== 'delivered');
-    const completedAssignments = assignments.filter(a => a.status === 'delivered');
+    const activeAssignments = assignments.filter(a => a.status !== 'delivered' || a.booking?.payment_status === 'cash_pending');
+    const completedAssignments = assignments.filter(a => a.status === 'delivered' && a.booking?.payment_status !== 'cash_pending');
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif", maxWidth: '480px', margin: '0 auto' }}>
