@@ -25,11 +25,12 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
-        const { reference, status, payment_status } = body;
+        const { reference, status, payment_status, payment_method } = body;
 
         const updateBody: any = {};
         if (status) updateBody.status = status;
         if (payment_status) updateBody.payment_status = payment_status;
+        if (payment_method) updateBody.payment_method = payment_method;
         if (payment_status === 'paid') updateBody.paid_at = new Date().toISOString();
 
         const res = await fetch(
@@ -93,26 +94,28 @@ export async function PATCH(req: NextRequest) {
                     { reference: b.reference, status: 'Payment Received', service: 'Delivery', delivery_fee: b.delivery_fee }
                 );
 
-                // Notify rider
-                const assignmentRes = await fetch(
-                    `${SUPABASE_URL}/rest/v1/delivery_assignments?booking_id=eq.${encodeURIComponent(reference)}&select=*&limit=1`,
-                    { headers }
-                );
-                const assignments = await assignmentRes.json();
-                const assignment = assignments?.[0];
-
-                if (assignment?.rider_id) {
-                    const riderRes = await fetch(
-                        `${SUPABASE_URL}/rest/v1/riders?id=eq.${assignment.rider_id}&select=phone,name`,
+                // Notify rider (only for online payments — cash rider already knows)
+                if (payment_method !== 'cash') {
+                    const assignmentRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/delivery_assignments?booking_id=eq.${encodeURIComponent(reference)}&select=*&limit=1`,
                         { headers }
                     );
-                    const riders = await riderRes.json();
-                    const rider = riders?.[0];
-                    if (rider?.phone) {
-                        await notifyClientOrderStatus(
-                            { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
-                            { reference: b.reference, status: 'Payment Confirmed', service: 'Delivery', delivery_fee: b.delivery_fee }
+                    const assignments = await assignmentRes.json();
+                    const assignment = assignments?.[0];
+
+                    if (assignment?.rider_id) {
+                        const riderRes = await fetch(
+                            `${SUPABASE_URL}/rest/v1/riders?id=eq.${assignment.rider_id}&select=phone,name`,
+                            { headers }
                         );
+                        const riders = await riderRes.json();
+                        const rider = riders?.[0];
+                        if (rider?.phone) {
+                            await notifyClientOrderStatus(
+                                { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
+                                { reference: b.reference, status: 'Payment Confirmed', service: 'Delivery', delivery_fee: b.delivery_fee }
+                            );
+                        }
                     }
                 }
 
