@@ -205,16 +205,32 @@ export async function notifyDeliveryStatus(booking: {
   }
 }
 
-export async function notifyRiderCashPending(rider: { phone: string; name: string }, booking: { reference: string; delivery_fee: number }) {
-  const smsText = `Sakzee: Hi ${rider.name}, client confirmed cash payment of GHS ${booking.delivery_fee} for delivery ${booking.reference}. Please confirm receipt at sakzee.com/rider/login`;
-  const html = emailTemplate(`
-    <h2 style="color:#1a2456;">💵 Cash Payment to Confirm</h2>
-    <p>Hi ${rider.name},</p>
-    <p>The client has confirmed paying <strong>GHS ${booking.delivery_fee}</strong> cash for delivery <strong>${booking.reference}</strong>.</p>
-    <p>Please log in to confirm you received the cash.</p>
-    <a href="https://sakzee.com/rider/login" style="display:inline-block;background:#f97316;color:white;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;margin-top:0.5rem;">Confirm Cash Receipt →</a>
-  `);
-  await notify(rider.phone, null, 'whatsapp', TEMPLATES.order_status_client, { '1': rider.name, '2': booking.reference, '3': 'Cash Payment — Please Confirm' }, `💵 Cash Payment Confirmation — ${booking.reference}`, html);
+export async function notifyRiderAssigned(rider: { phone: string; name: string }, booking: { reference: string; delivery_type: string; total_stops: number; pickup_address: string; delivery_address: string; date: string; pickup_time: string }) {
+  const deliveryType = booking.delivery_type === 'multi_delivery'
+    ? `Multi-Drop (${booking.total_stops} stops)`
+    : booking.delivery_type === 'multi_pickup'
+      ? `Multi-Pickup (${booking.total_stops} stops)`
+      : 'Single Delivery';
+  const msg = `Sakzee: Hi ${rider.name}, new delivery assigned!\nRef: ${booking.reference}\nType: ${deliveryType}\nPickup: ${booking.pickup_address}\nDate: ${booking.date} at ${booking.pickup_time}\nLog in: sakzee.com/rider/login`;
+  try {
+    await twilioClient.messages.create({
+      from: FROM_WHATSAPP,
+      to: `whatsapp:${formatGhana(rider.phone)}`,
+      body: msg,
+    });
+  } catch (e) { console.error('Rider assign notify error:', e); }
+}
+
+export async function notifyRiderCashPending(
+  rider: { phone: string; name: string }, booking: { reference: string; delivery_fee: number }) {
+  const msg = `Sakzee: Hi ${rider.name}, client confirmed cash payment of GHS ${booking.delivery_fee} for delivery ${booking.reference}.\nPlease confirm receipt at: sakzee.com/rider/login`;
+  try {
+    await twilioClient.messages.create({
+      from: FROM_WHATSAPP,
+      to: `whatsapp:${formatGhana(rider.phone)}`,
+      body: msg,
+    });
+  } catch (e) { console.error('Rider cash notify error:', e); }
 }
 
 export async function notifyClientOrderStatus(

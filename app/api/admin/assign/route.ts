@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyClientOrderStatus } from '@/lib/notifications';
+import { notifyClientOrderStatus, notifyRiderAssigned } from '@/lib/notifications';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -82,20 +82,18 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Notify rider via WhatsApp
+        // Notify rider via SMS
         if (rider?.phone && booking) {
-            const deliveryType = booking.delivery_type === 'multi_delivery'
-                ? `Multi-Drop (${booking.total_stops} stops)`
-                : booking.delivery_type === 'multi_pickup'
-                    ? `Multi-Pickup (${booking.total_stops} stops)`
-                    : 'Single Delivery';
-
-            await notifyClientOrderStatus(
-                { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
+            await notifyRiderAssigned(
+                { phone: rider.phone, name: rider.name },
                 {
                     reference: booking.reference,
-                    status: 'New Assignment',
-                    service: `${deliveryType} · Pickup: ${booking.pickup_address} · Deliver to: ${booking.delivery_address} · Log in: sakzee.com/rider/login`,
+                    delivery_type: booking.delivery_type || 'single',
+                    total_stops: booking.total_stops || 1,
+                    pickup_address: booking.pickup_address,
+                    delivery_address: booking.delivery_address,
+                    date: booking.date,
+                    pickup_time: booking.pickup_time,
                 }
             );
         }
