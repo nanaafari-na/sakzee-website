@@ -81,8 +81,24 @@ export async function notifyVendorApproved(vendor: {
   notification_preference?: Pref;
 }) {
   const pref = vendor.notification_preference || 'whatsapp';
-  const html = emailTemplate(`<h2 style="color:#1a2456;">Welcome to Sakzee, ${vendor.business_name}! 🎉</h2><p style="color:#374151;">Hi ${vendor.contact_name}, your vendor account has been approved. <a href="https://sakzee.com/vendor/login" style="color:#f97316;">Log in to your dashboard</a>.</p>`);
-  await notify(vendor.phone, vendor.email || null, pref, TEMPLATES.vendor_approved, { '1': vendor.business_name }, `✅ Your Sakzee vendor account has been approved!`, html);
+  const smsText = `Sakzee: Hi ${vendor.contact_name}, great news! Your vendor account for ${vendor.business_name} has been approved. Log in at sakzee.com/vendor/login to manage your inventory and orders. Questions? Call 0256 089 599.`;
+  const html = emailTemplate(`
+    <h2 style="color:#1a2456;">Welcome to Sakzee, ${vendor.business_name}! 🎉</h2>
+    <p style="color:#374151;">Hi ${vendor.contact_name},</p>
+    <p style="color:#374151;">Your vendor account has been <strong style="color:#15803d;">approved and activated</strong>. You can now log in and start using the Sakzee platform.</p>
+    <div style="background:#f8f9ff;border-radius:10px;padding:1rem;margin:1rem 0;">
+      <p style="color:#1a2456;font-weight:700;margin:0 0 0.5rem;">Getting Started:</p>
+      <ul style="color:#374151;margin:0;padding-left:1.25rem;">
+        <li>Log in at <a href="https://sakzee.com/vendor/login" style="color:#f97316;">sakzee.com/vendor/login</a></li>
+        <li>View your inventory dashboard</li>
+        <li>Create your first delivery order</li>
+        <li>Track orders in real time</li>
+      </ul>
+    </div>
+    <p style="color:#6b7280;font-size:0.85rem;">Need help? Call <strong>0256 089 599</strong> or reply to this email.</p>
+    <a href="https://sakzee.com/vendor/login" style="display:inline-block;background:#f97316;color:white;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;margin-top:0.5rem;">Log In to Dashboard →</a>
+  `);
+  await notify(vendor.phone, vendor.email || null, pref, TEMPLATES.vendor_approved, { '1': vendor.business_name }, `✅ Your Sakzee vendor account is now active — ${vendor.business_name}`, html);
 }
 
 export async function notifyVendorSuspended(vendor: {
@@ -194,7 +210,24 @@ export async function notifyClientOrderStatus(
   booking: { reference: string; status: string; service: string; delivery_fee?: number }
 ) {
   const pref = client.notification_preference || 'whatsapp';
+  const isPaid = booking.status === 'Paid';
   const isDelivered = booking.status === 'Delivered' && booking.delivery_fee;
-  const html = emailTemplate(`<h2 style="color:#1a2456;">${booking.status}</h2><p>Hi ${client.name}, your delivery ${booking.reference} is now <strong>${booking.status}</strong>.</p>${isDelivered ? `<p><a href="https://sakzee.com/pay/${booking.reference}" style="background:#f97316;color:white;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;">Pay GHS ${booking.delivery_fee}</a></p>` : `<p><a href="https://sakzee.com/track" style="background:#1a2456;color:white;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;">Track Delivery</a></p>`}`);
-  await notify(client.phone, client.email || null, pref, TEMPLATES.order_status_client, { '1': client.name, '2': booking.reference, '3': booking.status }, `Delivery ${booking.reference} — ${booking.status}`, html);
+  const isRider = booking.service?.startsWith('Payment confirmed');
+
+  let html = '';
+  if (isPaid && isRider) {
+    // Rider notification
+    html = emailTemplate(`<h2 style="color:#15803d;">Payment Received ✅</h2><p>Hi ${client.name}, payment of <strong>GHS ${booking.delivery_fee}</strong> has been confirmed for delivery <strong>${booking.reference}</strong>. Well done!</p>`);
+  } else if (isPaid) {
+    // Paying party notification
+    html = emailTemplate(`<h2 style="color:#15803d;">Payment Confirmed ✅</h2><p>Hi ${client.name}, your payment of <strong>GHS ${booking.delivery_fee}</strong> for delivery <strong>${booking.reference}</strong> has been received. Thank you for choosing Sakzee!</p>`);
+  } else {
+    html = emailTemplate(`<h2 style="color:#1a2456;">${booking.status}</h2><p>Hi ${client.name}, your delivery ${booking.reference} is now <strong>${booking.status}</strong>.</p>${isDelivered ? `<p><a href="https://sakzee.com/pay/${booking.reference}" style="background:#f97316;color:white;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;">Pay GHS ${booking.delivery_fee}</a></p>` : `<p><a href="https://sakzee.com/track" style="background:#1a2456;color:white;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;">Track Delivery</a></p>`}`);
+  }
+
+  const waVars = isPaid
+    ? { '1': client.name, '2': booking.reference, '3': `Paid - GHS ${booking.delivery_fee} confirmed` }
+    : { '1': client.name, '2': booking.reference, '3': booking.status };
+
+  await notify(client.phone, client.email || null, pref, TEMPLATES.order_status_client, waVars, `Delivery ${booking.reference} — ${booking.status}`, html);
 }
