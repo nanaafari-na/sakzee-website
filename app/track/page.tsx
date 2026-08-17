@@ -117,7 +117,6 @@ export default function TrackPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     reference: booking.reference,
-                    status: booking.status,
                     payment_status: 'cash_pending',
                     payment_method: 'cash',
                 }),
