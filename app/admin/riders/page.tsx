@@ -35,6 +35,7 @@ export default function AdminRidersPage() {
     const [form, setForm] = useState({ name: '', phone: '', pin: '', vehicle_type: 'motorcycle', license_plate: '', email: '' });
     const [saving, setSaving] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Record<string, string>>({});
+    const [showPin, setShowPin] = useState(false);
     const [assignedRefs, setAssignedRefs] = useState<string[]>([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -260,7 +261,15 @@ export default function AdminRidersPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                             <div><label style={lbl}>Full Name *</label><input style={inp} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Rider's full name" /></div>
                             <div><label style={lbl}>Phone Number *</label><input style={inp} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0XX XXX XXXX" /></div>
-                            <div><label style={lbl}>PIN * (4-6 digits)</label><input style={inp} value={form.pin} onChange={e => setForm({ ...form, pin: e.target.value })} placeholder="e.g. 1234" maxLength={6} type="password" /></div>
+                            <div>
+                                <label style={lbl}>PIN * (4-6 digits)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input style={{ ...inp, paddingRight: '2.75rem' }} value={form.pin} onChange={e => setForm({ ...form, pin: e.target.value })} placeholder="e.g. 1234" maxLength={6} type={showPin ? 'text' : 'password'} />
+                                    <button type="button" onClick={() => setShowPin(!showPin)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', padding: 0 }}>
+                                        {showPin ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
+                                    </button>
+                                </div>
+                            </div>
                             <div><label style={lbl}>Email (optional)</label><input style={inp} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="rider@email.com" /></div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                 <div>
