@@ -18,7 +18,17 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
     Delivered: { bg: '#f0fdf4', color: '#15803d' },
 };
 
-type Booking = { id: string; reference: string; name: string; email: string; phone: string; business: string; service: string; date: string; notes: string; status: string; paid_at: string; };
+type Booking = {
+    id: string; reference: string; name: string; email: string; phone: string;
+    business: string; service: string; date: string; notes: string; status: string;
+    paid_at: string; pickup_address: string; delivery_address: string;
+    recipient_name: string; recipient_phone: string; paying_party: string;
+    delivery_type: string; total_stops: number; delivery_fee: number;
+    distance_km: number; payment_status: string; payment_method: string;
+    notification_preference: string; pickup_time: string;
+    failure_reason: string; failure_notes: string; return_fee: number;
+    booking_type: string;
+};
 type Vendor = { id: string; email: string; business_name: string; contact_name: string; phone: string; status: string; created_at: string; approved_at: string | null; suspended_at: string | null; suspension_reason: string | null; };
 type Product = { id: string; name: string; sku: string; quantity: number; space_type: string; checkin_status: string; checked_in_quantity: number; vendor_id: string; };
 type VendorOrder = { id: string; reference: string; vendor_id: string; vendor: { business_name: string; contact_name: string; email: string; phone: string } | null; recipient_name: string; recipient_phone: string; delivery_address: string; region: string; distance_km: number; weight_kg: number; delivery_fee: number; status: string; payment_status: string; created_at: string; };
@@ -364,9 +374,44 @@ export default function AdminPage() {
                             <button onClick={() => setSelectedBooking(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1.25rem', lineHeight: 1 }}>×</button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1.25rem' }}>
-                            {([['Customer', selectedBooking.name], ['Email', selectedBooking.email], ['Phone', selectedBooking.phone], ['Business', selectedBooking.business], ['Service', selectedBooking.service], ['Date', selectedBooking.date], ['Notes', selectedBooking.notes]] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
-                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.38rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '0.875rem' }}>
-                                    <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500, maxWidth: '260px', textAlign: 'right' }}>{v}</span>
+                            {/* Sender */}
+                            <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Sender</div>
+                            {([['Name', selectedBooking.name], ['Phone', selectedBooking.phone], ['Email', selectedBooking.email]] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
+                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '0.85rem' }}>
+                                    <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500, textAlign: 'right', maxWidth: '220px' }}>{v}</span>
+                                </div>
+                            ))}
+                            {selectedBooking.recipient_name && <>
+                                <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0.5rem 0 0.25rem' }}>Recipient</div>
+                                {([['Name', selectedBooking.recipient_name], ['Phone', selectedBooking.recipient_phone], ['Pays', selectedBooking.paying_party === 'recipient' ? selectedBooking.recipient_name : selectedBooking.name]] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
+                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500, textAlign: 'right', maxWidth: '220px' }}>{v}</span>
+                                    </div>
+                                ))}
+                            </>}
+                            <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0.5rem 0 0.25rem' }}>Delivery</div>
+                            {([
+                                ['Type', selectedBooking.delivery_type === 'multi_delivery' ? `Multi-Drop (${selectedBooking.total_stops} stops)` : selectedBooking.delivery_type === 'multi_pickup' ? `Multi-Pickup (${selectedBooking.total_stops} stops)` : 'Single'],
+                                ['Pickup', selectedBooking.pickup_address],
+                                ['Delivery', selectedBooking.delivery_address],
+                                ['Date', selectedBooking.date],
+                                ['Time', selectedBooking.pickup_time],
+                                ['Distance', selectedBooking.distance_km ? `${selectedBooking.distance_km} km` : ''],
+                                ['Notes', selectedBooking.notes],
+                            ] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
+                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '0.85rem' }}>
+                                    <span style={{ color: '#666', flexShrink: 0, marginRight: '1rem' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500, textAlign: 'right', maxWidth: '220px' }}>{v}</span>
+                                </div>
+                            ))}
+                            <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0.5rem 0 0.25rem' }}>Payment</div>
+                            {([
+                                ['Fee', selectedBooking.delivery_fee ? `GHS ${selectedBooking.delivery_fee}` : ''],
+                                ['Status', selectedBooking.payment_status === 'paid' ? '✅ Paid' : selectedBooking.payment_status === 'cash_pending' ? '⏳ Cash Pending (awaiting rider)' : '⏳ Unpaid'],
+                                ['Method', selectedBooking.payment_method === 'cash' ? '💵 Cash' : selectedBooking.payment_status === 'paid' ? '💳 Online (Paystack)' : 'Pay on delivery'],
+                                ['Notifications', selectedBooking.notification_preference === 'both' ? 'Email & WhatsApp' : selectedBooking.notification_preference || ''],
+                            ] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
+                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '0.85rem' }}>
+                                    <span style={{ color: '#666' }}>{k}</span><span style={{ color: '#1a2456', fontWeight: 500 }}>{v}</span>
                                 </div>
                             ))}
                             {selectedBooking.status === 'Failed' && (
