@@ -250,7 +250,7 @@ export default function HomePage() {
             <div className="footer-links" style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Pages</div>
-                {[['/', 'Home'], ['/services', 'Services'], ['/pricing', 'Pricing'], ['/about', 'About'], ['/book/delivery', 'Book a Delivery'], ['/book', 'Other Services'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
+                {[['/', 'Home'], ['/services', 'Services'], ['/pricing', 'Pricing'], ['/about', 'About'], ['/book/delivery', 'Book a Delivery'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
                   <div key={href} style={{ marginBottom: '0.42rem' }}>
                     <Link href={href} style={{ color: 'rgba(255,255,255,0.48)', textDecoration: 'none', fontSize: '0.83rem' }}>{label}</Link>
                   </div>

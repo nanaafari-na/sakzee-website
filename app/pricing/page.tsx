@@ -43,8 +43,8 @@ const deliveryZones = [
     { zone: 'Within 10km', distance: 'e.g. Oyarifa → Madina', fee: 25, time: 'Same day' },
     { zone: '11 - 20km', distance: 'e.g. Oyarifa → Airport', fee: 40, time: 'Same day' },
     { zone: '21 - 30km', distance: 'e.g. Oyarifa → Tema', fee: 55, time: 'Same day' },
-    { zone: '31 - 50km', distance: 'e.g. Oyarifa → Kasoa', fee: 81, time: 'Same day' },
-    { zone: '51 - 100km', distance: 'e.g. Oyarifa → Koforidua', fee: 141, time: '1-2 days' },
+    { zone: '31 - 50km', distance: 'e.g. Oyarifa → Kasoa', fee: 85, time: 'Same day' },
+    { zone: '51 - 100km', distance: 'e.g. Oyarifa → Koforidua', fee: 160, time: '1-2 days' },
     { zone: 'Over 100km', distance: 'Inter-regional', fee: null, time: 'Contact us' },
 ];
 
@@ -369,7 +369,7 @@ export default function PricingPage() {
                         <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
                             <div>
                                 <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.7rem' }}>Pages</div>
-                                {[['/', 'Home'], ['/services', 'Services'], ['/about', 'About'], ['/book', 'Book Now'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
+                                {[['/', 'Home'], ['/services', 'Services'], ['/about', 'About'], ['/book/delivery', 'Book Now'], ['/vendor/register', 'Become a Vendor']].map(([href, label]) => (
                                     <div key={href} style={{ marginBottom: '0.42rem' }}>
                                         <Link href={href} style={{ color: 'rgba(255,255,255,0.48)', textDecoration: 'none', fontSize: '0.83rem' }}>{label}</Link>
                                     </div>
