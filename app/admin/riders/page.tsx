@@ -25,6 +25,9 @@ type Booking = {
     booking_type: string;
 };
 
+const inp: React.CSSProperties = { width: '100%', padding: '0.7rem 0.9rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a2456' };
+const lbl: React.CSSProperties = { display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.82rem', marginBottom: '0.35rem' };
+
 export default function AdminRidersPage() {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -116,8 +119,6 @@ export default function AdminRidersPage() {
         setAssigning(null);
     }
 
-    const inp: React.CSSProperties = { width: '100%', padding: '0.7rem 0.9rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a2456' };
-    const lbl: React.CSSProperties = { display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.82rem', marginBottom: '0.35rem' };
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>

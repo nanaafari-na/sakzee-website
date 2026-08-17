@@ -35,6 +35,92 @@ function newStop(): Stop {
     return { id: Date.now().toString(), address: '', contact_name: '', contact_phone: '', package_description: '', weight_over_5kg: false, distance_km: 0, fee: 0, paying_party: 'booker' };
 }
 
+const inp: React.CSSProperties = { width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.92rem', outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit', color: '#1a2456', background: 'white' };
+const lbl: React.CSSProperties = { display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' };
+
+function updateStop(list: Stop[], setList: (s: Stop[]) => void, idx: number, field: keyof Stop, value: any) {
+    const updated = [...list];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setList(updated);
+}
+
+function removeStop(list: Stop[], setList: (s: Stop[]) => void, idx: number) {
+    if (list.length > 1) setList(list.filter((_, i) => i !== idx));
+}
+
+function StopCard({ stop, index, label, list, setList, showWeight = true, showPayingParty = false, bookerName = '', mapsReady, attachStopAC }: {
+    stop: Stop; index: number; label: string; list: Stop[]; setList: (s: Stop[]) => void;
+    showWeight?: boolean; showPayingParty?: boolean; bookerName?: string;
+    mapsReady: boolean; attachStopAC: (el: HTMLInputElement, onSelect: (addr: string) => void) => void;
+}) {
+    return (
+        <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e5e7eb', marginBottom: '0.85rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                    <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.9rem' }}>{label} {index + 1}</div>
+                    {stop.fee > 0 && <div style={{ color: '#f97316', fontWeight: 700, fontSize: '0.82rem', marginTop: '0.15rem' }}>Fee: GHS {stop.fee}</div>}
+                </div>
+                {list.length > 1 && (
+                    <button onClick={() => removeStop(list, setList, index)} style={{ background: '#fef2f2', border: 'none', color: '#dc2626', borderRadius: '6px', padding: '0.3rem 0.65rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit' }}>Remove</button>
+                )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div>
+                    <label style={lbl}>Address *</label>
+                    <input
+                        style={inp}
+                        value={stop.address}
+                        onChange={e => updateStop(list, setList, index, 'address', e.target.value)}
+                        placeholder="Start typing address..."
+                        autoComplete="off"
+                        ref={el => { if (el && mapsReady) attachStopAC(el, (addr) => updateStop(list, setList, index, 'address', addr)); }}
+                    />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                        <label style={lbl}>Contact Name *</label>
+                        <input style={inp} value={stop.contact_name} onChange={e => updateStop(list, setList, index, 'contact_name', e.target.value)} placeholder="Full name" />
+                    </div>
+                    <div>
+                        <label style={lbl}>Phone *</label>
+                        <input style={inp} value={stop.contact_phone} onChange={e => updateStop(list, setList, index, 'contact_phone', e.target.value)} placeholder="0XX XXX XXXX" />
+                    </div>
+                </div>
+                <div>
+                    <label style={lbl}>Package Description</label>
+                    <input style={inp} value={stop.package_description} onChange={e => updateStop(list, setList, index, 'package_description', e.target.value)} placeholder="e.g. 2 boxes of clothing" />
+                </div>
+                {showWeight && (
+                    <div>
+                        <label style={lbl}>Package Weight</label>
+                        <select style={{ ...inp, appearance: 'none' as const }} value={stop.weight_over_5kg ? 'over' : 'under'} onChange={e => updateStop(list, setList, index, 'weight_over_5kg', e.target.value === 'over')}>
+                            <option value="under">Under 5kg</option>
+                            <option value="over">Over 5kg (+GHS 10 surcharge)</option>
+                        </select>
+                    </div>
+                )}
+                {showPayingParty && (
+                    <div>
+                        <label style={{ ...lbl, marginBottom: '0.5rem' }}>Who pays for this stop?</label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {[
+                                { value: 'booker', label: `Sender (${bookerName || 'You'})`, icon: '👤' },
+                                { value: 'recipient', label: `Recipient (${stop.contact_name || 'Recipient'})`, icon: '📦' },
+                            ].map(opt => (
+                                <label key={opt.value} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 0.75rem', border: `2px solid ${stop.paying_party === opt.value ? '#f97316' : '#e2e8f0'}`, borderRadius: '8px', cursor: 'pointer', background: stop.paying_party === opt.value ? '#fff7ed' : 'white' }}>
+                                    <input type="radio" name={`paying_party_${stop.id}`} value={opt.value} checked={stop.paying_party === opt.value} onChange={() => updateStop(list, setList, index, 'paying_party', opt.value)} style={{ accentColor: '#f97316', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: stop.paying_party === opt.value ? '#c2410c' : '#6b7280', lineHeight: 1.3 }}>{opt.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function BookDeliveryPage() {
     const [step, setStep] = useState(1);
     const [deliveryType, setDeliveryType] = useState<DeliveryType>('single');
@@ -239,18 +325,8 @@ export default function BookDeliveryPage() {
         ? multiDeliveryTotal
         : totalDistanceKm > 0 ? calcFee(totalDistanceKm, hasHeavy) : 0;
 
-    function updateStop(list: Stop[], setList: (s: Stop[]) => void, idx: number, field: keyof Stop, value: any) {
-        const updated = [...list];
-        updated[idx] = { ...updated[idx], [field]: value };
-        setList(updated);
-    }
-
     function addStop(list: Stop[], setList: (s: Stop[]) => void) {
         if (list.length < MAX_STOPS) setList([...list, newStop()]);
-    }
-
-    function removeStop(list: Stop[], setList: (s: Stop[]) => void, idx: number) {
-        if (list.length > 1) setList(list.filter((_, i) => i !== idx));
     }
 
     function validateStep() {
@@ -458,8 +534,6 @@ export default function BookDeliveryPage() {
         doc.save(`Sakzee-Receipt-${reference}.pdf`);
     }
 
-    const inp: React.CSSProperties = { width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.92rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a2456', background: 'white' };
-    const lbl: React.CSSProperties = { display: 'block', color: '#374151', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' };
     const STEPS = ['Type', 'Sender', 'Details', 'Confirm'];
 
     const totalStops = deliveryType === 'multi_delivery' ? deliveryStops.length : deliveryType === 'multi_pickup' ? pickupStops.length : 1;
@@ -504,76 +578,6 @@ export default function BookDeliveryPage() {
             </div>
         </div>
     );
-
-    // ─── STOP CARD COMPONENT ──────────────────────────────────────
-    function StopCard({ stop, index, label, list, setList, showWeight = true, showPayingParty = false, bookerName = '' }: { stop: Stop; index: number; label: string; list: Stop[]; setList: (s: Stop[]) => void; showWeight?: boolean; showPayingParty?: boolean; bookerName?: string }) {
-        return (
-            <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e5e7eb', marginBottom: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <div>
-                        <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.9rem' }}>{label} {index + 1}</div>
-                        {stop.fee > 0 && <div style={{ color: '#f97316', fontWeight: 700, fontSize: '0.82rem', marginTop: '0.15rem' }}>Fee: GHS {stop.fee}</div>}
-                    </div>
-                    {list.length > 1 && (
-                        <button onClick={() => removeStop(list, setList, index)} style={{ background: '#fef2f2', border: 'none', color: '#dc2626', borderRadius: '6px', padding: '0.3rem 0.65rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit' }}>Remove</button>
-                    )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div>
-                        <label style={lbl}>Address *</label>
-                        <input
-                            style={inp}
-                            value={stop.address}
-                            onChange={e => updateStop(list, setList, index, 'address', e.target.value)}
-                            placeholder="Start typing address..."
-                            autoComplete="off"
-                            ref={el => { if (el && mapsReady) attachStopAC(el, (addr) => updateStop(list, setList, index, 'address', addr)); }}
-                        />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                        <div>
-                            <label style={lbl}>Contact Name *</label>
-                            <input style={inp} value={stop.contact_name} onChange={e => updateStop(list, setList, index, 'contact_name', e.target.value)} placeholder="Full name" />
-                        </div>
-                        <div>
-                            <label style={lbl}>Phone *</label>
-                            <input style={inp} value={stop.contact_phone} onChange={e => updateStop(list, setList, index, 'contact_phone', e.target.value)} placeholder="0XX XXX XXXX" />
-                        </div>
-                    </div>
-                    <div>
-                        <label style={lbl}>Package Description</label>
-                        <input style={inp} value={stop.package_description} onChange={e => updateStop(list, setList, index, 'package_description', e.target.value)} placeholder="e.g. 2 boxes of clothing" />
-                    </div>
-                    {showWeight && (
-                        <div>
-                            <label style={lbl}>Package Weight</label>
-                            <select style={{ ...inp, appearance: 'none' as const }} value={stop.weight_over_5kg ? 'over' : 'under'} onChange={e => updateStop(list, setList, index, 'weight_over_5kg', e.target.value === 'over')}>
-                                <option value="under">Under 5kg</option>
-                                <option value="over">Over 5kg (+GHS 10 surcharge)</option>
-                            </select>
-                        </div>
-                    )}
-                    {showPayingParty && (
-                        <div>
-                            <label style={{ ...lbl, marginBottom: '0.5rem' }}>Who pays for this stop?</label>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                {[
-                                    { value: 'booker', label: `Sender (${bookerName || 'You'})`, icon: '👤' },
-                                    { value: 'recipient', label: `Recipient (${stop.contact_name || 'Recipient'})`, icon: '📦' },
-                                ].map(opt => (
-                                    <label key={opt.value} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 0.75rem', border: `2px solid ${stop.paying_party === opt.value ? '#f97316' : '#e2e8f0'}`, borderRadius: '8px', cursor: 'pointer', background: stop.paying_party === opt.value ? '#fff7ed' : 'white' }}>
-                                        <input type="radio" name={`paying_party_${stop.id}`} value={opt.value} checked={stop.paying_party === opt.value} onChange={() => updateStop(list, setList, index, 'paying_party', opt.value)} style={{ accentColor: '#f97316', flexShrink: 0 }} />
-                                        <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: stop.paying_party === opt.value ? '#c2410c' : '#6b7280', lineHeight: 1.3 }}>{opt.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9ff', fontFamily: "'Segoe UI', sans-serif" }}>
@@ -774,7 +778,7 @@ export default function BookDeliveryPage() {
                                             )}
                                         </div>
                                         {deliveryStops.map((stop, i) => (
-                                            <StopCard key={stop.id} stop={stop} index={i} label="Delivery Stop" list={deliveryStops} setList={setDeliveryStops} showPayingParty={true} bookerName={sender.name} />
+                                            <StopCard key={stop.id} stop={stop} index={i} label="Delivery Stop" list={deliveryStops} setList={setDeliveryStops} showPayingParty={true} bookerName={sender.name} mapsReady={mapsReady} attachStopAC={attachStopAC} />
                                         ))}
                                     </div>
 
@@ -804,7 +808,7 @@ export default function BookDeliveryPage() {
                                             )}
                                         </div>
                                         {pickupStops.map((stop, i) => (
-                                            <StopCard key={stop.id} stop={stop} index={i} label="Pickup Stop" list={pickupStops} setList={setPickupStops} />
+                                            <StopCard key={stop.id} stop={stop} index={i} label="Pickup Stop" list={pickupStops} setList={setPickupStops} mapsReady={mapsReady} attachStopAC={attachStopAC} />
                                         ))}
                                     </div>
 
