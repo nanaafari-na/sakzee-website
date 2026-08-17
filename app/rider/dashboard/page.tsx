@@ -37,6 +37,7 @@ type Assignment = {
         pickup_time: string;
         delivery_fee: number;
         delivery_type?: string;
+        recipient_name?: string;
     };
 };
 
@@ -350,40 +351,55 @@ export default function RiderDashboard() {
                             </div>
                         )}
 
-                        {/* Multi-delivery stops */}
-                        {a.booking?.delivery_type === 'multi_delivery' && a.stops && a.stops.length > 0 && a.status === 'picked_up' && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Delivery Stops</div>
-                                {a.stops.map((stop, i) => {
-                                    const isActive = a.stops!.findIndex((s: Stop) => s.status === 'pending') === i;
-                                    const stopDone = stop.status === 'delivered';
-                                    const stopFailed = stop.status === 'failed';
-                                    return (
-                                        <div key={stop.id} style={{ background: stopDone ? '#f0fdf4' : stopFailed ? '#fef2f2' : isActive ? '#fff7ed' : '#f8f9ff', border: `1px solid ${stopDone ? '#bbf7d0' : stopFailed ? '#fecaca' : isActive ? '#fed7aa' : '#e5e7eb'}`, borderRadius: '10px', padding: '0.85rem', marginBottom: '0.65rem' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                                <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.82rem' }}>Stop {stop.stop_order}</div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    {stop.delivery_fee > 0 && <span style={{ color: '#f97316', fontWeight: 700, fontSize: '0.78rem' }}>GHS {stop.delivery_fee}</span>}
-                                                    <span style={{ background: stopDone ? '#f0fdf4' : stopFailed ? '#fef2f2' : isActive ? '#fff7ed' : '#f8f9ff', color: stopDone ? '#15803d' : stopFailed ? '#dc2626' : isActive ? '#c2410c' : '#9ca3af', padding: '0.18rem 0.55rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700 }}>
-                                                        {stopDone ? '✅ Delivered' : stopFailed ? '❌ Failed' : isActive ? '🔄 Active' : '⏳ Pending'}
-                                                    </span>
+                        {/* Multi-stop UI — works for both multi_delivery and multi_pickup */}
+                        {(a.booking?.delivery_type === 'multi_delivery' || a.booking?.delivery_type === 'multi_pickup') && a.stops && a.stops.length > 0 && a.status === 'picked_up' && (() => {
+                            const isPickupType = a.booking?.delivery_type === 'multi_pickup';
+                            return (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                                        {isPickupType ? 'Pickup Stops' : 'Delivery Stops'}
+                                    </div>
+                                    {a.stops.map((stop, i) => {
+                                        const isActive = a.stops!.findIndex((s: Stop) => s.status === 'pending') === i;
+                                        const stopDone = stop.status === 'delivered';
+                                        const stopFailed = stop.status === 'failed';
+                                        return (
+                                            <div key={stop.id} style={{ background: stopDone ? '#f0fdf4' : stopFailed ? '#fef2f2' : isActive ? '#fff7ed' : '#f8f9ff', border: `1px solid ${stopDone ? '#bbf7d0' : stopFailed ? '#fecaca' : isActive ? '#fed7aa' : '#e5e7eb'}`, borderRadius: '10px', padding: '0.85rem', marginBottom: '0.65rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                                    <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.82rem' }}>
+                                                        {isPickupType ? 'Pickup' : 'Stop'} {stop.stop_order}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        {!isPickupType && stop.delivery_fee > 0 && <span style={{ color: '#f97316', fontWeight: 700, fontSize: '0.78rem' }}>GHS {stop.delivery_fee}</span>}
+                                                        <span style={{ background: stopDone ? '#f0fdf4' : stopFailed ? '#fef2f2' : isActive ? '#fff7ed' : '#f8f9ff', color: stopDone ? '#15803d' : stopFailed ? '#dc2626' : isActive ? '#c2410c' : '#9ca3af', padding: '0.18rem 0.55rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                                            {stopDone ? (isPickupType ? '✅ Collected' : '✅ Delivered') : stopFailed ? '❌ Failed' : isActive ? '🔄 Active' : '⏳ Pending'}
+                                                        </span>
+                                                    </div>
                                                 </div>
+                                                <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>{stop.contact_name} · {stop.contact_phone}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.15rem' }}>{stop.address}</div>
+                                                {stop.failure_reason && <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.25rem' }}>Reason: {stop.failure_reason}</div>}
+                                                {isActive && !stopDone && !stopFailed && (
+                                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem' }}>
+                                                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#1a2456', color: 'white', padding: '0.6rem', borderRadius: '8px', textDecoration: 'none', fontSize: '0.78rem', fontWeight: 600, textAlign: 'center', display: 'block' }}>🗺️ Navigate</a>
+                                                        <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment'); input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) deliverStop(a.id, stop.id, file); }; input.click(); }} disabled={uploading} style={{ flex: 1, background: uploading ? '#ccc' : '#15803d', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>{uploading ? '...' : isPickupType ? '✅ Mark Collected' : '📸 Mark Delivered'}</button>
+                                                        <button onClick={() => { setReportingIssue(a.id); setReportingStopId(stop.id); }} style={{ flex: 1, background: 'white', color: '#dc2626', border: '1.5px solid #fecaca', padding: '0.6rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>↩️ Fail</button>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>{stop.contact_name} · {stop.contact_phone}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.15rem' }}>{stop.address}</div>
-                                            {stop.failure_reason && <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.25rem' }}>Reason: {stop.failure_reason}</div>}
-                                            {isActive && !stopDone && !stopFailed && (
-                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem' }}>
-                                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#1a2456', color: 'white', padding: '0.6rem', borderRadius: '8px', textDecoration: 'none', fontSize: '0.78rem', fontWeight: 600, textAlign: 'center', display: 'block' }}>🗺️ Navigate</a>
-                                                    <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment'); input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) deliverStop(a.id, stop.id, file); }; input.click(); }} disabled={uploading} style={{ flex: 1, background: uploading ? '#ccc' : '#15803d', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>{uploading ? '...' : '📸 Mark Delivered'}</button>
-                                                    <button onClick={() => { setReportingIssue(a.id); setReportingStopId(stop.id); }} style={{ flex: 1, background: 'white', color: '#dc2626', border: '1.5px solid #fecaca', padding: '0.6rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>↩️ Fail</button>
-                                                </div>
-                                            )}
+                                        );
+                                    })}
+                                    {isPickupType && a.stops.every((s: Stop) => s.status === 'delivered') && (
+                                        <div style={{ background: '#f0f3ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '0.85rem', marginTop: '0.5rem' }}>
+                                            <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.82rem', marginBottom: '0.35rem' }}>✅ All pickups collected — Deliver to:</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>{a.booking?.recipient_name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{a.booking?.delivery_address}</div>
+                                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a.booking?.delivery_address || '')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '0.5rem', background: '#1a2456', color: 'white', padding: '0.5rem 1rem', borderRadius: '7px', textDecoration: 'none', fontSize: '0.78rem', fontWeight: 600 }}>🗺️ Navigate to Delivery</a>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {/* Actions */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>

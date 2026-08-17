@@ -28,11 +28,18 @@ export async function GET(req: NextRequest) {
             const bookings = await bookingRes.json();
             const booking = bookings?.[0] || null;
 
-            // For multi-delivery, fetch stops
+            // For multi-delivery, fetch delivery stops
+            // For multi-pickup, fetch pickup stops
             let stops: any[] = [];
             if (booking?.delivery_type === 'multi_delivery') {
                 const stopsRes = await fetch(
                     `${SUPABASE_URL}/rest/v1/booking_stops?booking_id=eq.${encodeURIComponent(a.booking_id)}&stop_type=eq.delivery&order=stop_order.asc`,
+                    { headers }
+                );
+                stops = await stopsRes.json();
+            } else if (booking?.delivery_type === 'multi_pickup') {
+                const stopsRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/booking_stops?booking_id=eq.${encodeURIComponent(a.booking_id)}&stop_type=eq.pickup&order=stop_order.asc`,
                     { headers }
                 );
                 stops = await stopsRes.json();
@@ -90,25 +97,41 @@ export async function PATCH(req: NextRequest) {
                     const pref = b.notification_preference || 'whatsapp';
 
                     if (status === 'delivered') {
-                        // Notify recipient of this stop
+                        const isPickup = b.delivery_type === 'multi_pickup';
+                        const stopStatusLabel = isPickup ? 'Collected' : 'Delivered';
+
+                        // Notify contact for this stop
                         await notifyClientOrderStatus(
                             { phone: stop.contact_phone, name: stop.contact_name, notification_preference: pref },
-                            { reference: b.reference, status: 'Delivered', service: `Stop ${stop.stop_order} delivered`, delivery_fee: stop.delivery_fee }
+                            {
+                                reference: b.reference,
+                                status: stopStatusLabel,
+                                service: isPickup
+                                    ? `Stop ${stop.stop_order} collected by rider`
+                                    : `Stop ${stop.stop_order} delivered`,
+                                delivery_fee: isPickup ? undefined : stop.delivery_fee,
+                            }
                         );
 
-                        // Send payment notification to paying party
-                        const payingPhone = stop.paying_party === 'recipient' ? stop.contact_phone : b.phone;
-                        const payingName = stop.paying_party === 'recipient' ? stop.contact_name : b.name;
-                        if (stop.delivery_fee > 0) {
+                        // Send payment notification for delivery stops only
+                        if (!isPickup && stop.delivery_fee > 0) {
+                            const payingPhone = stop.paying_party === 'recipient' ? stop.contact_phone : b.phone;
+                            const payingName = stop.paying_party === 'recipient' ? stop.contact_name : b.name;
                             await notifyClientOrderStatus(
                                 { phone: payingPhone, name: payingName, notification_preference: pref },
-                                { reference: `${b.reference}-S${stop.stop_order}`, status: 'Payment Due', service: `Stop ${stop.stop_order} delivered`, delivery_fee: stop.delivery_fee }
+                                {
+                                    reference: `${b.reference}-S${stop.stop_order}`,
+                                    status: 'Payment Due',
+                                    service: `Stop ${stop.stop_order} delivered`,
+                                    delivery_fee: stop.delivery_fee,
+                                }
                             );
                         }
 
-                        // Check if ALL stops are now delivered — update main booking
+                        // Check if ALL stops are now done — update main booking
+                        const stopType = b.delivery_type === 'multi_pickup' ? 'pickup' : 'delivery';
                         const allStopsRes = await fetch(
-                            `${SUPABASE_URL}/rest/v1/booking_stops?booking_id=eq.${encodeURIComponent(assignment.booking_id)}&stop_type=eq.delivery&select=status`,
+                            `${SUPABASE_URL}/rest/v1/booking_stops?booking_id=eq.${encodeURIComponent(assignment.booking_id)}&stop_type=eq.${stopType}&select=status`,
                             { headers }
                         );
                         const allStops = await allStopsRes.json();
@@ -116,20 +139,36 @@ export async function PATCH(req: NextRequest) {
                         const allDelivered = allStops.every((s: any) => s.status === 'delivered');
 
                         if (allDone) {
+                            // For multi_pickup: all pickups collected → now status = Shipped (on the way to delivery)
+                            // For multi_delivery: all delivered → Delivered or Partially Delivered
+                            const finalStatus = b.delivery_type === 'multi_pickup'
+                                ? (allDelivered ? 'Shipped' : 'Partially Collected')
+                                : (allDelivered ? 'Delivered' : 'Partially Delivered');
+
                             await fetch(`${SUPABASE_URL}/rest/v1/bookings?reference=eq.${encodeURIComponent(assignment.booking_id)}`, {
                                 method: 'PATCH',
                                 headers: { ...headers, 'Prefer': 'return=minimal' },
-                                body: JSON.stringify({ status: allDelivered ? 'Delivered' : 'Partially Delivered' }),
+                                body: JSON.stringify({ status: finalStatus }),
                             });
-                            await fetch(`${SUPABASE_URL}/rest/v1/delivery_assignments?id=eq.${id}`, {
-                                method: 'PATCH',
-                                headers: { ...headers, 'Prefer': 'return=minimal' },
-                                body: JSON.stringify({ status: 'delivered', delivered_at: new Date().toISOString() }),
-                            });
-                            // Notify booker all done
+
+                            if (b.delivery_type !== 'multi_pickup') {
+                                await fetch(`${SUPABASE_URL}/rest/v1/delivery_assignments?id=eq.${id}`, {
+                                    method: 'PATCH',
+                                    headers: { ...headers, 'Prefer': 'return=minimal' },
+                                    body: JSON.stringify({ status: 'delivered', delivered_at: new Date().toISOString() }),
+                                });
+                            }
+
+                            // Notify booker
                             await notifyClientOrderStatus(
                                 { phone: b.phone, email: b.email, name: b.name, notification_preference: pref },
-                                { reference: b.reference, status: allDelivered ? 'All Delivered' : 'Partially Delivered', service: 'Multi-Drop Delivery' }
+                                {
+                                    reference: b.reference,
+                                    status: b.delivery_type === 'multi_pickup'
+                                        ? (allDelivered ? 'All pickups collected — on the way!' : 'Some pickups collected')
+                                        : (allDelivered ? 'All Delivered' : 'Partially Delivered'),
+                                    service: b.delivery_type === 'multi_pickup' ? 'Multi-Pickup' : 'Multi-Drop Delivery',
+                                }
                             );
                         }
 
