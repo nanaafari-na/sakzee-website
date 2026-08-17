@@ -15,6 +15,8 @@ export default function TrackPage() {
     const [showPayment, setShowPayment] = useState(false);
     const [paying, setPaying] = useState(false);
     const [paid, setPaid] = useState(false);
+    const [cashPending, setCashPending] = useState(false);
+    const [confirmingCash, setConfirmingCash] = useState(false);
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const riderMarker = useRef<any>(null);
@@ -54,7 +56,8 @@ export default function TrackPage() {
             setAssignment(data.assignment || null);
             setRider(data.rider || null);
             setPaid(data.booking?.payment_status === 'paid');
-            if ((data.booking?.status === 'Delivered' || data.booking?.status === 'Failed') && data.booking?.payment_status !== 'paid') {
+            setCashPending(data.booking?.payment_status === 'cash_pending');
+            if ((data.booking?.status === 'Delivered' || data.booking?.status === 'Failed') && data.booking?.payment_status !== 'paid' && data.booking?.payment_status !== 'cash_pending') {
                 setShowPayment(true);
             }
             if (data.assignment?.status === 'picked_up') {
@@ -103,6 +106,26 @@ export default function TrackPage() {
         if (riderMarker.current) riderMarker.current.setPosition(pos);
         else riderMarker.current = new window.google.maps.Marker({ position: pos, map: mapInstance.current, title: `Rider: ${riderData.name}`, icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png' });
         mapInstance.current.panTo(pos);
+    }
+
+    async function confirmCashPayment() {
+        if (!booking) return;
+        setConfirmingCash(true);
+        try {
+            await fetch('/api/admin/bookings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reference: booking.reference,
+                    status: booking.status,
+                    payment_status: 'cash_pending',
+                    payment_method: 'cash',
+                }),
+            });
+            setCashPending(true);
+            setShowPayment(false);
+        } catch (e) { console.error(e); }
+        setConfirmingCash(false);
     }
 
     function payWithPaystack() {
@@ -207,8 +230,14 @@ export default function TrackPage() {
                             </div>
                         </div>
 
-                        {/* Payment due banner - Delivered or Failed */}
-                        {(booking.status === 'Delivered' || booking.status === 'Failed') && !paid && (
+                        {/* Cash pending confirmation */}
+                        {cashPending && !paid && (
+                            <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem' }}>
+                                <div style={{ fontWeight: 700, color: '#1a2456', marginBottom: '0.25rem' }}>⏳ Awaiting Cash Confirmation</div>
+                                <div style={{ color: '#6b7280', fontSize: '0.85rem' }}>You confirmed cash payment. Waiting for rider to confirm receipt.</div>
+                            </div>
+                        )}
+                        {(booking.status === 'Delivered' || booking.status === 'Failed') && !paid && !cashPending && (
                             <div style={{ background: booking.status === 'Failed' ? '#fef2f2' : '#fff7ed', border: `2px solid ${booking.status === 'Failed' ? '#dc2626' : '#f97316'}`, borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                                 <div>
                                     <div style={{ fontWeight: 700, color: '#1a2456', marginBottom: '0.2rem' }}>
@@ -334,11 +363,11 @@ export default function TrackPage() {
                                 <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
                             </div>
 
-                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                            <button onClick={confirmCashPayment} disabled={confirmingCash} style={{ width: '100%', background: confirmingCash ? '#ccc' : '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '10px', padding: '1rem', cursor: confirmingCash ? 'not-allowed' : 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
                                 <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>💵</div>
-                                <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>Pay Cash to Rider</div>
-                                <div style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.2rem' }}>Hand GHS {booking.delivery_fee} directly to your Sakzee rider</div>
-                            </div>
+                                <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>{confirmingCash ? 'Confirming...' : 'I\'ve Paid Cash to Rider'}</div>
+                                <div style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.2rem' }}>GHS {booking.delivery_fee} handed directly to rider</div>
+                            </button>
 
                             <button onClick={() => setShowPayment(false)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'inherit', padding: '0.25rem' }}>
                                 Close — I'll pay later

@@ -38,6 +38,8 @@ type Assignment = {
         delivery_fee: number;
         delivery_type?: string;
         recipient_name?: string;
+        payment_status?: string;
+        payment_method?: string;
     };
 };
 
@@ -198,6 +200,22 @@ export default function RiderDashboard() {
             await loadAssignments(riderId!);
         } catch (e: any) { setError(e.message); }
         setReportingLoading(false);
+    }
+
+    async function confirmCashReceived(bookingReference: string) {
+        try {
+            await fetch('/api/admin/bookings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reference: bookingReference,
+                    payment_status: 'paid',
+                    payment_method: 'cash',
+                }),
+            });
+            const riderId = localStorage.getItem('rider_id');
+            if (riderId) await loadAssignments(riderId);
+        } catch (e: any) { setError(e.message); }
     }
 
     async function uploadProof(assignmentId: string, file: File) {
@@ -410,6 +428,20 @@ export default function RiderDashboard() {
                                 >
                                     ✅ Confirm Pickup
                                 </button>
+                            )}
+
+                            {/* Cash payment confirmation */}
+                            {(a.status === 'delivered' || a.status === 'picked_up') && a.booking?.payment_status === 'cash_pending' && (
+                                <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: '10px', padding: '1rem', marginBottom: '0.5rem' }}>
+                                    <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.88rem', marginBottom: '0.35rem' }}>💵 Cash Payment Pending</div>
+                                    <div style={{ color: '#6b7280', fontSize: '0.8rem', marginBottom: '0.75rem' }}>Client confirmed paying GHS {a.booking?.delivery_fee} cash. Please confirm you received it.</div>
+                                    <button
+                                        onClick={() => confirmCashReceived(a.booking_id)}
+                                        style={{ width: '100%', background: '#15803d', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                                    >
+                                        ✅ Confirm Cash Received
+                                    </button>
+                                </div>
                             )}
 
                             {a.status === 'picked_up' && (

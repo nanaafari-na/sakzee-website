@@ -13,6 +13,8 @@ export default function PayPage() {
     const [error, setError] = useState('');
     const [paid, setPaid] = useState(false);
     const [paying, setPaying] = useState(false);
+    const [cashPending, setCashPending] = useState(false);
+    const [confirmingCash, setConfirmingCash] = useState(false);
 
     useEffect(() => {
         if (!reference) return;
@@ -21,6 +23,7 @@ export default function PayPage() {
             .then(data => {
                 setBooking(data.booking);
                 setPaid(data.booking?.payment_status === 'paid');
+                setCashPending(data.booking?.payment_status === 'cash_pending');
             })
             .catch(() => setError('Booking not found'))
             .finally(() => setLoading(false));
@@ -32,6 +35,25 @@ export default function PayPage() {
             document.body.appendChild(s);
         }
     }, [reference]);
+
+    async function confirmCashPayment() {
+        if (!booking) return;
+        setConfirmingCash(true);
+        try {
+            await fetch('/api/admin/bookings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reference: booking.reference,
+                    status: booking.status,
+                    payment_status: 'cash_pending',
+                    payment_method: 'cash',
+                }),
+            });
+            setCashPending(true);
+        } catch (e) { console.error(e); }
+        setConfirmingCash(false);
+    }
 
     function payWithPaystack() {
         if (!window.PaystackPop || !booking) return;
@@ -136,11 +158,19 @@ export default function PayPage() {
                                         <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
                                     </div>
 
-                                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>💵</div>
-                                        <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>Pay Cash to Rider</div>
-                                        <div style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.2rem' }}>Hand GHS {booking.delivery_fee} directly to your Sakzee rider</div>
-                                    </div>
+                                    {cashPending ? (
+                                        <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>⏳</div>
+                                            <div style={{ fontWeight: 700, color: '#c2410c', fontSize: '0.9rem' }}>Awaiting Rider Confirmation</div>
+                                            <div style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.2rem' }}>Your cash payment has been noted. Rider will confirm receipt.</div>
+                                        </div>
+                                    ) : (
+                                        <button onClick={confirmCashPayment} disabled={confirmingCash} style={{ width: '100%', background: confirmingCash ? '#ccc' : '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '10px', padding: '1rem', cursor: confirmingCash ? 'not-allowed' : 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>💵</div>
+                                            <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>{confirmingCash ? 'Confirming...' : "I've Paid Cash to Rider"}</div>
+                                            <div style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.2rem' }}>GHS {booking.delivery_fee} handed directly to your Sakzee rider</div>
+                                        </button>
+                                    )}
                                 </div>
 
                                 <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.78rem', marginTop: '1.25rem' }}>

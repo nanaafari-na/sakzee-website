@@ -53,8 +53,37 @@ export async function PATCH(req: NextRequest) {
         if (b) {
             const pref = b.notification_preference || 'whatsapp';
 
-            // Payment confirmed — notify paying party + rider
-            if (payment_status === 'paid') {
+            // Cash pending — notify rider to confirm receipt
+            if (payment_status === 'cash_pending') {
+                const assignmentRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/delivery_assignments?booking_id=eq.${encodeURIComponent(reference)}&select=*&limit=1`,
+                    { headers }
+                );
+                const assignments = await assignmentRes.json();
+                const assignment = assignments?.[0];
+
+                if (assignment?.rider_id) {
+                    const riderRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/riders?id=eq.${assignment.rider_id}&select=phone,name`,
+                        { headers }
+                    );
+                    const riders = await riderRes.json();
+                    const rider = riders?.[0];
+
+                    if (rider?.phone && b) {
+                        await notifyClientOrderStatus(
+                            { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
+                            {
+                                reference: b.reference,
+                                status: 'Cash Payment — Please Confirm',
+                                service: `Client confirmed cash payment of GHS ${b.delivery_fee} for ${b.reference}. Log in to confirm receipt: sakzee.com/rider/login`,
+                            }
+                        );
+                    }
+                }
+
+                // Payment confirmed online
+            } else if (payment_status === 'paid') {
                 const payingPhone = b.paying_party === 'recipient' ? b.recipient_phone : b.phone;
                 const payingName = b.paying_party === 'recipient' ? b.recipient_name : b.name;
                 const payingEmail = b.paying_party === 'booker' ? b.email : null;
