@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyDeliveryStatus, notifyClientOrderStatus } from '@/lib/notifications';
+import { notifyDeliveryStatus, notifyClientOrderStatus, notifyRiderCashPending } from '@/lib/notifications';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -72,13 +72,9 @@ export async function PATCH(req: NextRequest) {
                     const rider = riders?.[0];
 
                     if (rider?.phone && b) {
-                        await notifyClientOrderStatus(
-                            { phone: rider.phone, name: rider.name, notification_preference: 'whatsapp' },
-                            {
-                                reference: b.reference,
-                                status: 'Cash Payment — Please Confirm',
-                                service: `Client confirmed cash payment of GHS ${b.delivery_fee} for ${b.reference}. Log in to confirm receipt: sakzee.com/rider/login`,
-                            }
+                        await notifyRiderCashPending(
+                            { phone: rider.phone, name: rider.name },
+                            { reference: b.reference, delivery_fee: b.delivery_fee }
                         );
                     }
                 }

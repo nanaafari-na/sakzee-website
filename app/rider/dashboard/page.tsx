@@ -430,8 +430,8 @@ export default function RiderDashboard() {
                                 </button>
                             )}
 
-                            {/* Cash payment confirmation */}
-                            {(a.status === 'delivered' || a.status === 'picked_up') && a.booking?.payment_status === 'cash_pending' && (
+                            {/* Cash payment confirmation — show regardless of assignment status */}
+                            {a.booking?.payment_status === 'cash_pending' && (
                                 <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: '10px', padding: '1rem', marginBottom: '0.5rem' }}>
                                     <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.88rem', marginBottom: '0.35rem' }}>💵 Cash Payment Pending</div>
                                     <div style={{ color: '#6b7280', fontSize: '0.8rem', marginBottom: '0.75rem' }}>Client confirmed paying GHS {a.booking?.delivery_fee} cash. Please confirm you received it.</div>
