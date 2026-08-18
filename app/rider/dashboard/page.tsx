@@ -15,6 +15,7 @@ type Stop = {
     status: string;
     failure_reason?: string;
     proof_of_delivery_url?: string;
+    payment_status?: string;
 };
 
 type Assignment = {
@@ -202,17 +203,32 @@ export default function RiderDashboard() {
         setReportingLoading(false);
     }
 
-    async function confirmCashReceived(bookingReference: string) {
+    async function confirmCashReceived(bookingReference: string, stopId?: string) {
         try {
-            await fetch('/api/admin/bookings', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    reference: bookingReference,
-                    payment_status: 'paid',
-                    payment_method: 'cash',
-                }),
-            });
+            if (stopId) {
+                // Per-stop cash confirmation for multi-delivery
+                await fetch('/api/bookings/stops/pay', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        stop_id: stopId,
+                        reference: bookingReference,
+                        payment_status: 'paid',
+                        payment_method: 'cash',
+                    }),
+                });
+            } else {
+                // Single/multi-pickup booking cash confirmation
+                await fetch('/api/admin/bookings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reference: bookingReference,
+                        payment_status: 'paid',
+                        payment_method: 'cash',
+                    }),
+                });
+            }
             const riderId = localStorage.getItem('rider_id');
             if (riderId) await loadAssignments(riderId);
         } catch (e: any) { setError(e.message); }
@@ -397,6 +413,13 @@ export default function RiderDashboard() {
                                                 <div style={{ fontSize: '0.8rem', color: '#374151', fontWeight: 600 }}>{stop.contact_name} · {stop.contact_phone}</div>
                                                 <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.15rem' }}>{stop.address}</div>
                                                 {stop.failure_reason && <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.25rem' }}>Reason: {stop.failure_reason}</div>}
+                                                {/* Per-stop cash pending confirmation */}
+                                                {stopDone && stop.payment_status === 'cash_pending' && (
+                                                    <div style={{ marginTop: '0.65rem', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.65rem' }}>
+                                                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#c2410c', marginBottom: '0.4rem' }}>💵 Cash Payment Pending — GHS {stop.delivery_fee}</div>
+                                                        <button onClick={() => confirmCashReceived(a.booking_id, stop.id)} style={{ width: '100%', background: '#15803d', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✅ Confirm Cash Received</button>
+                                                    </div>
+                                                )}
                                                 {isActive && !stopDone && !stopFailed && (
                                                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem' }}>
                                                         <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#1a2456', color: 'white', padding: '0.6rem', borderRadius: '8px', textDecoration: 'none', fontSize: '0.78rem', fontWeight: 600, textAlign: 'center', display: 'block' }}>🗺️ Navigate</a>

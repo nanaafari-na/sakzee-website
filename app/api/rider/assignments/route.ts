@@ -113,16 +113,17 @@ export async function PATCH(req: NextRequest) {
                             }
                         );
 
-                        // Send payment notification for delivery stops only
+                        // Send per-stop payment link for delivery stops
                         if (!isPickup && stop.delivery_fee > 0) {
                             const payingPhone = stop.paying_party === 'recipient' ? stop.contact_phone : b.phone;
                             const payingName = stop.paying_party === 'recipient' ? stop.contact_name : b.name;
+                            const payLink = `sakzee.com/pay/${b.reference}/stop/${stop.id}`;
                             await notifyClientOrderStatus(
                                 { phone: payingPhone, name: payingName, notification_preference: pref },
                                 {
-                                    reference: `${b.reference}-S${stop.stop_order}`,
+                                    reference: b.reference,
                                     status: 'Payment Due',
-                                    service: `Stop ${stop.stop_order} delivered`,
+                                    service: `Stop ${stop.stop_order} delivered. Pay GHS ${stop.delivery_fee}: ${payLink}`,
                                     delivery_fee: stop.delivery_fee,
                                 }
                             );
