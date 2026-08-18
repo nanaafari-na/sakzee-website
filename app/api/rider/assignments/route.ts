@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyDeliveryStatus, notifyClientOrderStatus } from '@/lib/notifications';
+import { notifyDeliveryStatus, notifyClientOrderStatus, notifyRiderCashPending, notifyStopPayment } from '@/lib/notifications';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -116,16 +116,12 @@ export async function PATCH(req: NextRequest) {
                         // Send per-stop payment link for delivery stops
                         if (!isPickup && stop.delivery_fee > 0) {
                             const payingPhone = stop.paying_party === 'recipient' ? stop.contact_phone : b.phone;
+                            const payingEmail = stop.paying_party === 'booker' ? b.email : null;
                             const payingName = stop.paying_party === 'recipient' ? stop.contact_name : b.name;
-                            const payLink = `sakzee.com/pay/${b.reference}/stop/${stop.id}`;
-                            await notifyClientOrderStatus(
-                                { phone: payingPhone, name: payingName, notification_preference: pref },
-                                {
-                                    reference: b.reference,
-                                    status: 'Payment Due',
-                                    service: `Stop ${stop.stop_order} delivered. Pay GHS ${stop.delivery_fee}: ${payLink}`,
-                                    delivery_fee: stop.delivery_fee,
-                                }
+                            await notifyStopPayment(
+                                { phone: payingPhone, email: payingEmail, name: payingName, notification_preference: pref },
+                                { stop_order: stop.stop_order, delivery_fee: stop.delivery_fee, id: stop.id },
+                                b.reference
                             );
                         }
 

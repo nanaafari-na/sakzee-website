@@ -243,6 +243,27 @@ export async function notifyRiderCashPending(
   } catch (e) { console.error('Rider cash notify error:', e); }
 }
 
+export async function notifyStopPayment(
+  client: { phone: string; email?: string; name: string; notification_preference?: Pref },
+  stop: { stop_order: number; delivery_fee: number; id: string },
+  booking_reference: string
+) {
+  const pref = client.notification_preference || 'whatsapp';
+  const payLink = `https://sakzee.com/pay/${booking_reference}/stop/${stop.id}`;
+  const smsText = `Sakzee: Hi ${client.name}, Stop ${stop.stop_order} has been delivered! Please pay GHS ${stop.delivery_fee} at ${payLink}`;
+  const html = emailTemplate(`
+    <h2 style="color:#1a2456;">Stop ${stop.stop_order} Delivered! 🎉</h2>
+    <p>Hi ${client.name}, your package has been delivered.</p>
+    <p><strong>Amount due:</strong> GHS ${stop.delivery_fee}</p>
+    <div style="text-align:center;margin:1.5rem 0;">
+      <a href="${payLink}" style="background:#f97316;color:white;padding:0.85rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem;display:inline-block;">Pay GHS ${stop.delivery_fee} Now</a>
+    </div>
+    <p style="color:#6b7280;font-size:0.85rem;">Or pay cash directly to the rider.</p>
+  `);
+  const waVars = { '1': client.name, '2': booking_reference, '3': `Stop ${stop.stop_order} delivered - Pay GHS ${stop.delivery_fee}: sakzee.com/pay/${booking_reference}/stop/${stop.id}` };
+  await notify(client.phone, client.email || null, pref, TEMPLATES.order_status_client, waVars, `Stop ${stop.stop_order} Delivered — Pay GHS ${stop.delivery_fee}`, html);
+}
+
 export async function notifyClientOrderStatus(
   client: { phone: string; email?: string; name: string; notification_preference?: Pref },
   booking: { reference: string; status: string; service: string; delivery_fee?: number }

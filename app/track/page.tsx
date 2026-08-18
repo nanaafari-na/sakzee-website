@@ -9,6 +9,7 @@ export default function TrackPage() {
     const [booking, setBooking] = useState<any>(null);
     const [assignment, setAssignment] = useState<any>(null);
     const [rider, setRider] = useState<any>(null);
+    const [stops, setStops] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [mapsReady, setMapsReady] = useState(false);
@@ -55,6 +56,7 @@ export default function TrackPage() {
             setBooking(data.booking);
             setAssignment(data.assignment || null);
             setRider(data.rider || null);
+            setStops(data.stops || []);
             setPaid(data.booking?.payment_status === 'paid');
             setCashPending(data.booking?.payment_status === 'cash_pending');
             if ((data.booking?.status === 'Delivered' || data.booking?.status === 'Failed') && data.booking?.payment_status !== 'paid' && data.booking?.payment_status !== 'cash_pending') {
@@ -229,6 +231,42 @@ export default function TrackPage() {
                             </div>
                         </div>
 
+                        {/* Per-stop status for multi-delivery */}
+                        {booking?.delivery_type === 'multi_delivery' && stops.length > 0 && (
+                            <div style={{ background: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 2px 10px rgba(0,0,0,0.06)', marginBottom: '1.25rem' }}>
+                                <h3 style={{ color: '#1a2456', fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.85rem' }}>Delivery Stops</h3>
+                                {stops.map((stop: any) => (
+                                    <div key={stop.id} style={{ background: stop.status === 'delivered' ? '#f0fdf4' : stop.status === 'failed' ? '#fef2f2' : '#f8f9ff', border: `1px solid ${stop.status === 'delivered' ? '#bbf7d0' : stop.status === 'failed' ? '#fecaca' : '#e5e7eb'}`, borderRadius: '10px', padding: '0.85rem', marginBottom: '0.65rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                            <div style={{ fontWeight: 700, color: '#1a2456', fontSize: '0.85rem' }}>Stop {stop.stop_order}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                {stop.delivery_fee > 0 && <span style={{ color: '#f97316', fontWeight: 700, fontSize: '0.78rem' }}>GHS {stop.delivery_fee}</span>}
+                                                <span style={{ background: stop.status === 'delivered' ? '#f0fdf4' : stop.status === 'failed' ? '#fef2f2' : '#f8f9ff', color: stop.status === 'delivered' ? '#15803d' : stop.status === 'failed' ? '#dc2626' : '#9ca3af', padding: '0.18rem 0.55rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                                    {stop.status === 'delivered' ? '✅ Delivered' : stop.status === 'failed' ? '❌ Failed' : '⏳ Pending'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#374151' }}>{stop.contact_name} · {stop.contact_phone}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{stop.address}</div>
+                                        {/* Per-stop payment button */}
+                                        {stop.status === 'delivered' && stop.payment_status !== 'paid' && stop.delivery_fee > 0 && (
+                                            <div style={{ marginTop: '0.65rem' }}>
+                                                {stop.payment_status === 'cash_pending' ? (
+                                                    <div style={{ background: '#fff7ed', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#c2410c', fontWeight: 600 }}>⏳ Cash payment awaiting rider confirmation</div>
+                                                ) : (
+                                                    <a href={`/pay/${reference}/stop/${stop.id}`} style={{ display: 'inline-block', background: '#f97316', color: 'white', padding: '0.5rem 1rem', borderRadius: '7px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 700, marginTop: '0.25rem' }}>
+                                                        💳 Pay GHS {stop.delivery_fee}
+                                                    </a>
+                                                )}
+                                            </div>
+                                        )}
+                                        {stop.status === 'delivered' && stop.payment_status === 'paid' && (
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>✅ Paid</div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         {/* Cash pending confirmation */}
                         {cashPending && !paid && (
                             <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem' }}>
@@ -236,7 +274,8 @@ export default function TrackPage() {
                                 <div style={{ color: '#6b7280', fontSize: '0.85rem' }}>You confirmed cash payment. Waiting for rider to confirm receipt.</div>
                             </div>
                         )}
-                        {(booking.status === 'Delivered' || booking.status === 'Failed') && !paid && !cashPending && (
+                        {/* Payment banner — single and multi-pickup only */}
+                        {booking?.delivery_type !== 'multi_delivery' && (booking?.status === 'Delivered' || booking?.status === 'Failed') && !paid && !cashPending && (
                             <div style={{ background: booking.status === 'Failed' ? '#fef2f2' : '#fff7ed', border: `2px solid ${booking.status === 'Failed' ? '#dc2626' : '#f97316'}`, borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                                 <div>
                                     <div style={{ fontWeight: 700, color: '#1a2456', marginBottom: '0.2rem' }}>

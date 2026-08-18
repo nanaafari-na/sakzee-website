@@ -41,7 +41,18 @@ export async function GET(req: NextRequest) {
             rider = riders?.[0] || null;
         }
 
-        return NextResponse.json({ booking, assignment, rider });
+        // Get stops for multi-delivery/multi-pickup
+        let stops: any[] = [];
+        if (booking.delivery_type === 'multi_delivery' || booking.delivery_type === 'multi_pickup') {
+            const stopType = booking.delivery_type === 'multi_pickup' ? 'pickup' : 'delivery';
+            const stopsRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/booking_stops?booking_id=eq.${encodeURIComponent(reference)}&stop_type=eq.${stopType}&order=stop_order.asc`,
+                { headers }
+            );
+            stops = await stopsRes.json();
+        }
+
+        return NextResponse.json({ booking, assignment, rider, stops });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
