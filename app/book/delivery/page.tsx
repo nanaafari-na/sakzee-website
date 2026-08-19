@@ -51,7 +51,7 @@ function removeStop(list: Stop[], setList: (s: Stop[]) => void, idx: number) {
 function StopCard({ stop, index, label, list, setList, showWeight = true, showPayingParty = false, bookerName = '', mapsReady, attachStopAC }: {
     stop: Stop; index: number; label: string; list: Stop[]; setList: (s: Stop[]) => void;
     showWeight?: boolean; showPayingParty?: boolean; bookerName?: string;
-    mapsReady: boolean; attachStopAC: (el: HTMLInputElement, onSelect: (addr: string) => void) => void;
+    mapsReady: boolean; attachStopAC: (el: HTMLInputElement, onSelect: (addr: string) => void, mapsReady: boolean) => void;
 }) {
     return (
         <div style={{ background: '#f8f9ff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e5e7eb', marginBottom: '0.85rem' }}>
@@ -73,7 +73,7 @@ function StopCard({ stop, index, label, list, setList, showWeight = true, showPa
                         onChange={e => updateStop(list, setList, index, 'address', e.target.value)}
                         placeholder="Start typing address..."
                         autoComplete="off"
-                        ref={el => { if (el && mapsReady) attachStopAC(el, (addr) => updateStop(list, setList, index, 'address', addr)); }}
+                        ref={el => { if (el) attachStopAC(el, (addr) => updateStop(list, setList, index, 'address', addr), mapsReady); }}
                     />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -119,6 +119,18 @@ function StopCard({ stop, index, label, list, setList, showWeight = true, showPa
             </div>
         </div>
     );
+}
+
+function attachStopAC(input: HTMLInputElement, onSelect: (addr: string) => void, mapsReady: boolean) {
+    if (!mapsReady || !window.google?.maps?.places) return;
+    // Avoid attaching multiple times
+    if ((input as any)._acAttached) return;
+    (input as any)._acAttached = true;
+    const ac = new window.google.maps.places.Autocomplete(input, { componentRestrictions: { country: 'gh' }, fields: ['formatted_address'] });
+    ac.addListener('place_changed', () => {
+        const p = ac.getPlace();
+        if (p?.formatted_address) onSelect(p.formatted_address);
+    });
 }
 
 export default function BookDeliveryPage() {
@@ -200,15 +212,6 @@ export default function BookDeliveryPage() {
         if (step === 3 && deliveryType === 'single') setTimeout(attachSingleAC, 150);
     }, [step, mapsReady, deliveryType, attachSingleAC]);
 
-    // Attach autocomplete to a dynamic stop input
-    function attachStopAC(input: HTMLInputElement, onSelect: (addr: string) => void) {
-        if (!mapsReady || !window.google?.maps?.places) return;
-        const ac = new window.google.maps.places.Autocomplete(input, { componentRestrictions: { country: 'gh' }, fields: ['formatted_address'] });
-        ac.addListener('place_changed', () => {
-            const p = ac.getPlace();
-            if (p?.formatted_address) onSelect(p.formatted_address);
-        });
-    }
 
     // Calculate distance for single booking
     useEffect(() => {
@@ -767,7 +770,7 @@ export default function BookDeliveryPage() {
                                     <div>
                                         <label style={lbl}>Pickup Address *</label>
                                         <input style={inp} value={singlePickupAddress} onChange={e => setSinglePickupAddress(e.target.value)} placeholder="Start typing pickup address..." autoComplete="off"
-                                            ref={el => { if (el && mapsReady) attachStopAC(el, setSinglePickupAddress); }} />
+                                            ref={el => { if (el) attachStopAC(el, setSinglePickupAddress, mapsReady); }} />
                                     </div>
 
                                     <div style={{ borderTop: '2px solid #f3f4f6', paddingTop: '1rem' }}>
@@ -815,7 +818,7 @@ export default function BookDeliveryPage() {
                                     <div style={{ borderTop: '2px solid #f3f4f6', paddingTop: '1rem' }}>
                                         <label style={{ ...lbl, marginBottom: '0.85rem' }}>Delivery Address *</label>
                                         <input style={{ ...inp, marginBottom: '0.75rem' }} value={singleDeliveryAddress} onChange={e => setSingleDeliveryAddress(e.target.value)} placeholder="Start typing delivery address..." autoComplete="off"
-                                            ref={el => { if (el && mapsReady) attachStopAC(el, setSingleDeliveryAddress); }} />
+                                            ref={el => { if (el) attachStopAC(el, setSingleDeliveryAddress, mapsReady); }} />
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                             <div><label style={lbl}>Recipient Name *</label><input style={inp} value={singleRecipient.name} onChange={e => setSingleRecipient({ ...singleRecipient, name: e.target.value })} placeholder="Recipient's name" /></div>
                                             <div><label style={lbl}>Recipient Phone *</label><input style={inp} value={singleRecipient.phone} onChange={e => setSingleRecipient({ ...singleRecipient, phone: e.target.value })} placeholder="0XX XXX XXXX" /></div>
