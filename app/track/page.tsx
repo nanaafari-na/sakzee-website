@@ -406,10 +406,6 @@ export default function TrackPage() {
                                 <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>{confirmingCash ? 'Confirming...' : 'I\'ve Paid Cash to Rider'}</div>
                                 <div style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.2rem' }}>GHS {booking.delivery_fee} handed directly to rider</div>
                             </button>
-
-                            <button onClick={() => setShowPayment(false)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'inherit', padding: '0.25rem' }}>
-                                Close — I'll pay later
-                            </button>
                         </div>
                     </div>
                 </div>
